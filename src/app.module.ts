@@ -1,6 +1,11 @@
 import { Module } from '@nestjs/common';
 import { MemberController } from './member/member.controller';
 import { AdminController } from './admin/admin.controller';
+import { AdminService } from './admin/admin.service';
+import { MemberService } from './member/member.service';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { Member } from './member/entites/member.entity';
+import { Admin } from 'typeorm';
 /*
   Controllers and Providers are scoped by the module
   > 컨트롤러 및 공급자의 범위는 모듈에 따라 결정됩니다.
@@ -26,9 +31,62 @@ import { AdminController } from './admin/admin.controller';
         > 
     4. 모듈은 '앱'처럼 쓸 수 있다. 예를들어 instagram에서 photo 모듈, video 모듈 
 */
+/* #️⃣3.0 TypeORM and PostgreSQL
+  1. 🛸TypeScript & NesJS에서 DataBase와 통신하기 위해서 > ⭐ORM 사용
+  2. typeorm.io/#/ > TYPE ORM을 쓰면 타입스크립트의 좋은 점을 모두 이용
+  3. TypeORM: Object Relational Mapping 객체 관계 매핑 
+   > SQL문을 쓰는 대신에 코드를 써서 상호작용을 할 수 있다
+   > 타입스크립트 코드 > TYPE ORM <--🛸--> DB와 상호작용 
+
+  4.PostgreSQL setUp: 홈피는 여기 https://www.postgresql.org/ 
+  📄 4-1)설치
+   > C:\Program Files\PostgreSQL\11 > pw:2848 > port:3000 
+   > postgresql-12.12-1-windows-x64.exe --install_runtimes 0
+   > 원래는 여기 https://www.postgresql.org/download/ 그러나! 에러 발생 시 아래의 방법으로 다운로드 
+   >⭐PostgreSQL 11.2 설치방법 https://source-factory.tistory.com/22
+   >⭐PostgreSQL 11.2  https://get.enterprisedb.com/postgresql/postgresql-11.2-1-windows-x64.exe
+    ⭐https://www.pgadmin.org/download/에서 pgAdmin 또는 postico(Mac OS)를 설치: "DB의 UI로 쉽게 사용" 
+   > 설치경로: C:\Program Files\PostgreSQL\11\data
+   > port:5432 (default)
+
+  📄 4-2)서버에 연결 방법 : *2023.12.20 기록  
+   > pgAdmin 열기 >  > [Add New server] 또는 상위 Object 탭 > create > server
+      - [General 탭] : 
+      - ⭐[connection]탭 > hostname: localhost > port:5432 > Maintenanace database: postgres
+      - Username: postgres(default)  
+      - password: 284823 
+   > Database우클릭, Create > Database: 🔹nuber-eats > Owner: ohsoomansour  "여기서 사용자를 변경 할 수있다. "
+   > ⭐SQL: Create DATABASE "nuber-eats", OWNER = ohsoomansour  
+   > 실행된다는 것만 알고 넘어감
+    
+    db : test -> NestJS_BackendDev / Owner: postgresql -> ohsoomansour로 변경함  /23.12.20 수정
+
+  5. TypeORM setUp : npm을 참조
+   - 의미: TypeScript로 작성된 관계형 매퍼 
+   > NestJS 공홈: docs.nestjs.com/techniques/database
+   > npm > https://www.npmjs.com/package/typeorm
+   > npm install typeorm --save (install the npm package.)
+   > ⭐npm install reflect-metadata --save
+   > npm install @types/node --save-dev
+   > npm install pg --save  (install a database driver)
+   > npm install --save @nestjs/typeorm typeorm pg
+   > npm install typeorm --save
+   > Install a database driver: npm install pg --save */
 @Module({
-  imports: [],
+  imports: [
+    TypeOrmModule.forRoot({
+      type: 'postgres',
+      host: 'localhost',
+      port: 5432,
+      username: 'postgres',
+      password: '284823', //postgresql은 비번을 묻지 않음
+      database: 'NestJS_BackendDev',
+      synchronize: true,
+      logging: false,
+      entities: [Member, Admin], //[join(__dirname, '/**/*.entity.ts')]
+    }),
+  ],
   controllers: [MemberController, AdminController],
-  providers: [],
+  providers: [AdminService, MemberService],
 })
 export class AppModule {}
