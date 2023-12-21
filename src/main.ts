@@ -7,7 +7,7 @@ import { AppModule } from './app.module';
  git status (로컬 저장소 올리기 전 staging area의 목록 )
  git add 파일이름 vs git add .
  만약) warning: in the working copy of '.eslintrc.js', LF will be replaced by CRLF the next time Git touches it 에러의 경우
- > git config --global core.autocrlf true.
+ > git config --global core.autocrlf true
  git commit -m "12.18 First Commit" (로컬 저장소에 커밋)
  git branch origin (원격 저장소의 이름)
  git branch (브랜치가 main 또는 master에 위치하고 있는 지 확인: *master 초록색이 현재 브랜치를 가리키고 있음)
