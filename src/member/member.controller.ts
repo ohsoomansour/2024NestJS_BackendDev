@@ -58,8 +58,6 @@ export class MemberController {
       //세션 설정
       const session: any = req.session;
 
-      //Request에서의 세션에 직접 접근하여 대입하는 경우에 속성이 없다고 타입오류
-      //session.number = 2848; //사용자가 정의한 임의의 지정 값1
       session.user = loginInfo.userId; //사용자가 정의한 임의의 지정 값2
       session.cookie.maxAge = 1000 * 10; //만료 시간 : 10초
       res.status(HttpStatus.OK).send({ session: session });
