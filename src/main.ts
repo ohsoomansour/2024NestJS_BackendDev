@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-/*git 명령어
+import * as session from 'express-session'; //세션
+/*#git 명령어
  git remote remove origin (기존 원격 저장소 삭제)
  git remote -v (원격 저장소 확인)
  git remote init () "Reinitialized existing Git repository in C:/Users/내컴퓨터/Desktop/Nest_JS/Dev_Backend/.git/"
@@ -27,6 +28,13 @@ import { AppModule } from './app.module';
  */
 async function bootstrap() {
   const app = await NestFactory.create(AppModule); //반환: NestApplication instance
+  app.use(
+    session({
+      secret: 'SESSION_ID_SM', //세션아이디
+      resave: false, //request 중에 세션이 수정되지 않아도 세션을 세션 저장소에 다시 저장하도록 강제
+      saveUninitialized: false, //초기화되지 않는 세션을 저장하게 함
+    }),
+  ); //localhost == 127.0.0.1
   await app.listen(3000, 'localhost', () => {
     console.log('app listening on port 3000');
   });

@@ -13,15 +13,15 @@ import { LoginInput, LoginOutput } from './dtos/login.dto';
      > 실패하면 return "멤버 생성 실패" 
   +------------------------------------------------ TypeORM --------------------------------------------+
   | 1.create 메서드: Creates a new entity instance and                                                   |            
-  |    copies all entity properties from this object into a new entity.                                 |
-  |    Note that it copies only properties that are present in entity schema.                           | 
-  |  이해: this object는 this.members를 가리키는 것으로 추정, 모든 엔티티 프로퍼티를 새 인티티로 복사를 한다. |       
-  |       entity properties는 entity 스키마의 즉, DB의 테이블 컬럼들과 일치한다.                           |
-  +
+  |    copies all entity properties from this object into a new entity.                                  |
+  |    Note that it copies only properties that are present in entity schema.                            | 
+  |  이해: this object는 this.members를 가리키는 것으로 추정, 모든 엔티티 프로퍼티를 새 인티티로 복사를 한다.  |       
+  |       entity properties는 entity 스키마의 즉, DB의 테이블 컬럼들과 일치한다.                            |
+  +-----------------------------------------------------------------------------------------------------+
 
   3. 패스워드 어떻게 할 지
     
-     #4.7 Hashing Passwords
+    #Hashing Passwords
     3-1)What is an Entity Listener? 📄https://typeorm.io/listeners-and-subscribers
       - Any of your entities can have methods with custom logic that listen to specific entity events.
     
@@ -45,22 +45,29 @@ import { LoginInput, LoginOutput } from './dtos/login.dto';
       > await bcrypt.hash(this.password, 10);
       🔹InternalServerErrorException(): service파일 내부에서 catch한다
         >의미해석: (DB 저장하기 전에 서버에서 에러 발생 ) > 🚨{ok:false, error: "Couldn't create account" }
-    3-4)SQL 
-    🔹테이블 내용 삭제: DELETE FROM "user" WHERE "id" = 1;  
-    🔹테이블 조회: SELECT * FROM "user";
   
   5.jwt 또는 
   
-  6.session확인
-
+  6.session확인 : https://lts0606.tistory.com/623 참고
+    npm i express-session
+    npm i -D @types/express-session
+    @All 데코레이터 의미: 
 */
+
 @Injectable()
 export class MemberService {
   constructor(
     @InjectRepository(Member)
     private readonly members: Repository<Member>,
   ) {}
-  //회원가입: 1.멤버 존재 ? N 2.가입 분기 3.에러 발생
+  /*
+   * @Author : OSOOMAN
+   * @Date : 2023.12.21
+   * @Function : 회원가입
+   * @Parm : CreateMemberInput (DTO)
+   * @Return : object
+   * @Explain : 고객이 아이디, 비밀번호, 주소를 입력하여 회원가입을 신청
+   */
   async signUpForMembership({
     userId,
     password,
@@ -74,10 +81,7 @@ export class MemberService {
       }
       const newMember = this.members.create({ userId, password, address });
       await this.members.save(newMember);
-      return {
-        ok: true,
-        error: 'Welcom to our word!',
-      };
+      return { ok: true };
     } catch (e) {
       console.log(e);
       return {
@@ -86,7 +90,14 @@ export class MemberService {
       };
     }
   }
-
+  /*
+   * @Author : OSOOMAN
+   * @Date : 2023.12.23
+   * @Function : 회원 로그인
+   * @Parm : LoginInput(DTO)
+   * @Return : ok:true 또는 false와 error를 담은 object
+   * @Explain : 세션을 가지고 로그인을 한다.
+   */
   async login({ userId, password }: LoginInput): Promise<LoginOutput> {
     try {
       const member = await this.members.findOne({
