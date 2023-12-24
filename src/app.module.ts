@@ -80,7 +80,7 @@ import { AdminModule } from './admin/admin.module';
       password: '284823', //postgresql은 비번을 묻지 않음
       database: 'NestJS_BackendDev',
       synchronize: true,
-      logging: false,
+      logging: true,
       entities: [Member, Admin], //[join(__dirname, '/**/*.entity.ts')]
     }),
     MemberModule,

@@ -14,7 +14,15 @@ export class Member extends CoreEntity {
 
   @Column()
   address: string;
-
+  /*🚨컬럼 생성 시 문제 발생: 
+    query failed: ALTER TABLE "member" ADD "memberType" character varying NOT NULL
+    error: error: "memberType" 열에는 null 값 자료가 있습니다 
+    > member 테이블에 컬럼을 추가하는데 값이 없으니까 바로 에러가 발생한다
+    > 해결점: 일단 nullable을 허용 > 컬럼 추가 > 값 추가 > null 적용 여부를 생각하면 된다!
+  */
+  @Column({nullable : true})
+  memberType: string;
+  
   @BeforeInsert()
   @BeforeUpdate()
   async hashingPw(): Promise<void> {

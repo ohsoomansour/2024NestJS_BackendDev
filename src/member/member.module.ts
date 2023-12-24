@@ -9,4 +9,6 @@ import { MemberService } from './member.service';
   controllers: [MemberController],
   providers: [MemberService],
 })
-export class MemberModule {}
+export class MemberModule {
+  static forRoot: any;
+}

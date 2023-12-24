@@ -4,6 +4,8 @@ import {
   Get,
   HttpStatus,
   Post,
+  Query,
+  Redirect,
   Req,
   Res,
 } from '@nestjs/common';
@@ -28,6 +30,21 @@ export class MemberController {
   }
   /*
    * @Author : OSOOMAN
+   * @Date : 2023.12.24
+   * @Function : redirect
+   * @Parm : version(변수)
+   * @Return : url
+   * @Explain : version에 따라 redirect
+   */
+  @Get('')
+  @Redirect('https://docs.nestjs.com', 302)
+  getDocs(@Query('version') version) {
+    if (version && version === '5') {
+      return { url: 'https://docs.nestjs.com/v5/' };
+    }
+  }
+  /*
+   * @Author : OSOOMAN
    * @Date : 2023.12.21
    * @Function : 멤버 등록 함수
    * @Parm : request, response
@@ -43,6 +60,10 @@ export class MemberController {
       console.error();
     }
   }
+  @Get('/login')
+  loginPage() {
+    return '안녕하세요 로그인 페이지입니다';
+  }
   /*
    * @Author : OSOOMAN
    * @Date : 2023.12.23
@@ -51,15 +72,20 @@ export class MemberController {
    * @Return : 없음(세션)
    * @Explain : 로그인 후 세션 만료 기간을 테스트하고 세션 유지 확인
    */
-  @Get('/login')
-  logIn(@Body() loginInfo, @Req() req: Request, @Res() res: Response) {
+
+  //로그인 버튼을 누르면 홈으로 이동
+  @Get('/login/home')
+  async logIn(@Body() loginInfo, @Req() req: Request, @Res() res: Response) {
     //console.log(loginInfo);
     try {
       //세션 설정
       const session: any = req.session;
 
       session.user = loginInfo.userId; //사용자가 정의한 임의의 지정 값2
-      session.cookie.maxAge = 1000 * 10; //만료 시간 : 10초
+      //비즈니스 로직에서 유저 아이디 > memberType를 가져와야 되나
+      const memberType = await this.memberService.getMemberType(loginInfo);
+      session.memberType = memberType;
+      session.cookie.maxAge = 1000 * 60; //만료 시간 : 60초
       res.status(HttpStatus.OK).send({ session: session });
       //console.log(session); undefined
       this.memberService.login(loginInfo);

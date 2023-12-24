@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Member } from './entites/member.entity';
 import { CreateMemberInput, CreateMemberOutput } from './dtos/member.dto';
-import { LoginInput, LoginOutput } from './dtos/login.dto';
+import { LoginInput, LoginOutput, MemberType } from './dtos/login.dto';
 /* priavate only members: Repository<member> "member엔티티를 타입"
   1.Repository 만들어서 생성자 함수에 주입 시켜줘야됨
   2. const newMember = members.create(CreateMemberInput) 
@@ -72,6 +72,7 @@ export class MemberService {
     userId,
     password,
     address,
+    memberType,
   }: CreateMemberInput): Promise<CreateMemberOutput> {
     try {
       //이 아이디가 존재 하는 지 검사 필요
@@ -79,7 +80,12 @@ export class MemberService {
       if (idExist) {
         return { ok: false, error: 'ID already exists' };
       }
-      const newMember = this.members.create({ userId, password, address });
+      const newMember = this.members.create({
+        userId,
+        password,
+        address,
+        memberType,
+      });
       await this.members.save(newMember);
       return { ok: true };
     } catch (e) {
@@ -116,6 +122,39 @@ export class MemberService {
           error: 'The password is wrong',
         };
       }
+    } catch (e) {
+      console.error(e);
+    }
+  }
+  //주의: 리턴 타입 Promise<memberType>에서 memberType(DTO)로 하면 계속 Promise { <pending> }
+  async getMemberType({ userId }: LoginInput): Promise<MemberType> {
+    try {
+      const member = await this.members.findOne({
+        where: { userId },
+      });
+      console.log(member);
+      if (member) {
+        return {
+          memberType: member.memberType,
+        };
+      } else {
+        return {
+          memberType: '멤버 타입을 알 수 없습니다',
+        };
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  async getAllmembers(): Promise<Member[]> {
+    try {
+      const members = this.members.find({
+        order: {
+          id: 'DESC',
+        },
+      });
+      return members;
     } catch (e) {
       console.error(e);
     }

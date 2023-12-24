@@ -17,6 +17,7 @@ export class CreateMemberInput
   userId: string;
   password: string;
   address: string;
+  memberType: string;
 }
 
 export class CreateMemberOutput extends CoreOutput

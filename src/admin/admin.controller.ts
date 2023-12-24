@@ -1,5 +1,15 @@
-import { Body, Controller, Get, Param, Patch, Query } from '@nestjs/common';
-import { AdminService } from './admin.service';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Query,
+  Redirect,
+  Req,
+} from '@nestjs/common';
+import { Request } from 'express';
+import { MemberService } from 'src/member/member.service';
 /* ******************************* 🚨route 주의사항 ********************************* 
   if)요청: http://localhost:3000/admin/search?test 의 경우
   @Get(':id')
@@ -18,14 +28,38 @@ import { AdminService } from './admin.service';
 @Controller('admin')
 export class AdminController {
   //의존성 주입
-  constructor(private adminService: AdminService) {
-    this.adminService = adminService;
+  constructor(private memberService: MemberService) {
+    this.memberService = memberService;
+  }
+  /*
+   * @Author : OSOOMAN
+   * @Date : 2023.12.24
+   * @Function : redirect
+   * @Parm : version(변수)
+   * @Return : url
+   * @Explain : version에 따라 redirect
+   */
+
+  /*세션으로 확인 할 것인지 도는 jwt로 확인 ? 
+    ERROR [ExceptionsHandler] Cannot set headers after they are sent to the client
+  */
+  @Get('/memberList')
+  @Redirect('http://localhost:3000/admin/members')
+  memberRedirect(@Req() req: Request) {
+    const session: any = req.session;
+    if (session.memberType.memberType != 'admin') {
+      //admin/search는 리다이렉트 vs member/login은 못 감
+      return { url: 'http://localhost:3000/member/login' };
+    }
+
+    //return this.adminService.getAllMemberList();
+  }
+  //service로 > typeORM findAll ? (docs확인) > DB > 전체 회원 반환
+  @Get('/members')
+  getMembers() {
+    return this.memberService.getAllmembers();
   }
 
-  @Get('/list')
-  memberAllList() {
-    return this.adminService.getAllMemberList();
-  }
   /*아이디 또는 이름에 따라 회원을 찾을 수 있게 
     - 설계 순서: 요청 > DB조회 > service, 비즈니스 로직 > 확인된 멤버를 반환  
   */
