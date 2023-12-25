@@ -1,4 +1,5 @@
 import {
+  All,
   Body,
   Controller,
   Get,
@@ -7,8 +8,9 @@ import {
   Query,
   Redirect,
   Req,
+  Res,
 } from '@nestjs/common';
-import { Request } from 'express';
+import { Request, Response } from 'express';
 import { MemberService } from 'src/member/member.service';
 /* ******************************* 🚨route 주의사항 ********************************* 
   if)요청: http://localhost:3000/admin/search?test 의 경우
@@ -42,22 +44,32 @@ export class AdminController {
 
   /*세션으로 확인 할 것인지 도는 jwt로 확인 ? 
     ERROR [ExceptionsHandler] Cannot set headers after they are sent to the client
+
+    { url: 'http://localhost:3000/member/login' };
   */
+
   @Get('/memberList')
   @Redirect('http://localhost:3000/admin/members')
-  memberRedirect(@Req() req: Request) {
+  memberRedirect(@Req() req: Request, @Res() res: Response) {
     const session: any = req.session;
     if (session.memberType.memberType != 'admin') {
       //admin/search는 리다이렉트 vs member/login은 못 감
-      return { url: 'http://localhost:3000/member/login' };
+      return res.redirect('http://localhost:3000/member/login');
     }
-
-    //return this.adminService.getAllMemberList();
   }
-  //service로 > typeORM findAll ? (docs확인) > DB > 전체 회원 반환
-  @Get('/members')
-  getMembers() {
-    return this.memberService.getAllmembers();
+
+  @All('/members')
+  async getMembers(@Req() req: Request, @Res() res: Response) {
+    const session: any = req.session;
+    const memberType: string = session.memberType.memberType;
+    const members = await this.memberService.getAllmembers();
+
+    if (memberType != 'admin') {
+      res.redirect('http://localhost:3000/member/login');
+    } else {
+      //Q.왜 이렇게 받아줘야 할까?
+      return res.status(200).send(members);
+    }
   }
 
   /*아이디 또는 이름에 따라 회원을 찾을 수 있게 

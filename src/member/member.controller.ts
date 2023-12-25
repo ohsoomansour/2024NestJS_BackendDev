@@ -53,7 +53,6 @@ export class MemberController {
    */
   @Post('/join')
   signUpForMembership(@Body() memberInfo) {
-    console.log(memberInfo);
     try {
       return this.memberService.signUpForMembership(memberInfo);
     } catch {
@@ -62,7 +61,7 @@ export class MemberController {
   }
   @Get('/login')
   loginPage() {
-    return '안녕하세요 로그인 페이지입니다';
+    return '로그인 페이지입니다.';
   }
   /*
    * @Author : OSOOMAN
@@ -80,7 +79,6 @@ export class MemberController {
     try {
       //세션 설정
       const session: any = req.session;
-
       session.user = loginInfo.userId; //사용자가 정의한 임의의 지정 값2
       //비즈니스 로직에서 유저 아이디 > memberType를 가져와야 되나
       const memberType = await this.memberService.getMemberType(loginInfo);

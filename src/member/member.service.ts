@@ -149,7 +149,7 @@ export class MemberService {
 
   async getAllmembers(): Promise<Member[]> {
     try {
-      const members = this.members.find({
+      const members = await this.members.find({
         order: {
           id: 'DESC',
         },
