@@ -4,6 +4,7 @@ import { Member } from './member/entites/member.entity';
 import { Admin } from 'typeorm';
 import { MemberModule } from './member/member.module';
 import { AdminModule } from './admin/admin.module';
+import { EventsModule } from './events/events.module';
 /*
   Controllers and Providers are scoped by the module
   > 컨트롤러 및 공급자의 범위는 모듈에 따라 결정됩니다.
@@ -85,6 +86,7 @@ import { AdminModule } from './admin/admin.module';
     }),
     MemberModule,
     AdminModule,
+    EventsModule,
   ],
   controllers: [],
   providers: [],

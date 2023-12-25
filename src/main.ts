@@ -1,4 +1,5 @@
 import { NestFactory } from '@nestjs/core';
+import { WsAdapter } from '@nestjs/platform-ws';
 import { AppModule } from './app.module';
 import * as session from 'express-session'; //세션
 /*#git 명령어
@@ -28,6 +29,8 @@ import * as session from 'express-session'; //세션
  */
 async function bootstrap() {
   const app = await NestFactory.create(AppModule); //반환: NestApplication instance
+  app.useWebSocketAdapter(new WsAdapter(app));
+
   app.use(
     session({
       secret: 'SESSION_ID_SM', //세션아이디
@@ -35,8 +38,8 @@ async function bootstrap() {
       saveUninitialized: false, //초기화되지 않는 세션을 저장하게 함
     }),
   ); //localhost == 127.0.0.1
-  await app.listen(3000, 'localhost', () => {
-    console.log('app listening on port 3000');
-  });
+
+  await app.listen(3000);
+  console.log(`Application is running on: ${await app.getUrl()}`);
 }
 bootstrap();
