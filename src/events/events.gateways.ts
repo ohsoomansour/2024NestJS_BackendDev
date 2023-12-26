@@ -55,9 +55,22 @@ bootstrap();
   })
  
  ✅ 현재 기준은 @WebSocketGateway(8080, {path: '/chat'}) 이렇게 써야된다. 
+   
 
+ # @SubscribeMessage(키값) 사용법 
+   1. 'events' 정의한 키값이 존재한 메시지가 도착하면
+      [클라이언트 예시]
+      wsProp.current?.send(JSON.stringify({
+      "event": "events",
+      "data": "12.26 14:03 First Message will arrive at Dev_BackEnd server"
+      }))
+
+      [서버]
+      @SubscribeMessage('events')
+      event키 값은 events라고 인식하고 @MessageBody() data를 수신 
+      
 */
-@WebSocketGateway(8080, {path: '/chat'})
+@WebSocketGateway(8080, {path: '/chat', cors: '*'})
 export class EventGateway 
 {
   constructor() {}
@@ -65,14 +78,21 @@ export class EventGateway
   @WebSocketServer() server: Server
   private logger: Logger = new Logger('EventsGateway');
   
-  @SubscribeMessage('events')
-  handleEvent(@MessageBody() data: string) {
+  @SubscribeMessage('user1')
+  handleEvent(@MessageBody() data: any) {
     console.log(data);
-    
-    //const returnData = {subscribing: data}
-    this.server.emit('events', { name: 'Nest' });
+    this.server.emit('event1', { name: 'Im Nest' });
+    const returnData = {subscribing: "I receive your message"}
+    return returnData
     //return returnData;
   }
+
+  @SubscribeMessage('user2')
+  handleEmit(@MessageBody() data: any) {
+    console.log(data);
+
+    return data;
+  } 
 
 
 }

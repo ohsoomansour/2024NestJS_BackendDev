@@ -103,6 +103,7 @@ export class MemberService {
    * @Parm : LoginInput(DTO)
    * @Return : ok:true 또는 false와 error를 담은 object
    * @Explain : 세션을 가지고 로그인을 한다.
+   * @개선 필요🔺: 불필요한 세션을 줄이기 위한 방법은 ?
    */
   async login({ userId, password }: LoginInput): Promise<LoginOutput> {
     try {

@@ -11,7 +11,11 @@ import * as session from 'express-session'; //세션
  만약) warning: in the working copy of '.eslintrc.js', LF will be replaced by CRLF the next time Git touches it 에러의 경우
  > git config --global core.autocrlf true
  git commit -m "12.18 First Commit" (로컬 저장소에 커밋)
- git branch origin (원격 저장소의 이름)
+ git remote add origin https://github.com/ohsoomansour/chatting_frontend.git
+ - "원격이 없는 경우 새로운 깃 리파지토리를 만들어서 내 로컬저장소에 원격을 지정하는데,
+    이 원격(목적 url)의 이름은 origin으로 한다."
+
+ git branch [이름] master(분기해서 나올 브랜치)
  git branch (브랜치가 main 또는 master에 위치하고 있는 지 확인: *master 초록색이 현재 브랜치를 가리키고 있음)
  git push origin master (origin 원격 저장소 이름을 가지고 있는 master 브랜치에 업데이트 하겠다. )
  
@@ -30,7 +34,7 @@ import * as session from 'express-session'; //세션
 async function bootstrap() {
   const app = await NestFactory.create(AppModule); //반환: NestApplication instance
   app.useWebSocketAdapter(new WsAdapter(app));
-
+  app.enableCors();
   app.use(
     session({
       secret: 'SESSION_ID_SM', //세션아이디
