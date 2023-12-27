@@ -1,7 +1,8 @@
 import { NestFactory } from '@nestjs/core';
-import { WsAdapter } from '@nestjs/platform-ws';
+//import { WsAdapter } from '@nestjs/platform-ws';
 import { AppModule } from './app.module';
 import * as session from 'express-session'; //세션
+import { IoAdapter } from '@nestjs/platform-socket.io';
 /*#git 명령어
  git remote remove origin (기존 원격 저장소 삭제)
  git remote -v (원격 저장소 확인)
@@ -30,11 +31,20 @@ import * as session from 'express-session'; //세션
     }
    })
 
+
+  
+
+
+
  */
 async function bootstrap() {
   const app = await NestFactory.create(AppModule); //반환: NestApplication instance
-  app.useWebSocketAdapter(new WsAdapter(app));
-  app.enableCors();
+  //app.useWebSocketAdapter(new WsAdapter(app));
+  app.useWebSocketAdapter(new IoAdapter(app));
+  app.enableCors({
+    origin: true,
+    credentials: true,
+  });
   app.use(
     session({
       secret: 'SESSION_ID_SM', //세션아이디
