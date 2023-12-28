@@ -83,8 +83,8 @@ bootstrap();
     "Key, value 구조의 비정형 데이터를 저장하고 관리하기 위한 오픈 소스 기반의 비관계형 DBMS"
     >  1개의 서버 이상을 사용 할 때 유용 
     >  메모리 기반 데이터 구조의 빠른 응답성을 확보함과 동시에 데이터 불일치 문제를 해결
-    > 캐시 서버로 이용할 수 있는 것이 바로 Redis 
-       캐시서버란? "데이터를 가까운 곳에 데이터를 임시 저장"
+    > ⭐캐시 서버로 이용할 수 있는 것이 바로 Redis 
+       캐시서버란? "데이터를 가까운 곳에 데이터를 임시 저장" (java, HashMap 원리)
    [redis DB 설치 및 설정] 
     > 레디스의 GUI 툴: set d test  "key가 d, value가 test의 값을 생성"
    
@@ -120,8 +120,10 @@ bootstrap();
      constructor(@Inject(CACHE_MANAGER) private cacheManager: Cache) {}
      const value = await this.cacheManager.get(key);
       
-  #redis-websocekt과 redis 
-  레디스와 통신하기 위해 사용하는 Adapter 는 Socket.IO 공식 레포에 있는 socket.io-redis-adpater 를 사용했습니다.
+
+   
+ 
+ 
   */ 
 @WebSocketGateway(8080, {
   path: '/chat',
@@ -142,16 +144,21 @@ export class EventGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
   }
 
   //TypeError: Cannot read properties of undefined (reading 'name')
-  handleConnection(@ConnectedSocket() socket: Socket) {
-    this.logger.log(`A socket is connectd with the id: ${socket.id}`);    //undefined
+  handleConnection(@ConnectedSocket() client: Socket) {
+    this.logger.log(`A socket is connectd with the id: ${client.id}`);    //undefined
     //console.log(client)
+    
   }
-  handleDisconnect(socket: Socket) {
-    this.logger.log(`A socket with id:${socket.id} is disconnected From the server.  `)
+  handleDisconnect(client: Socket) {
+    this.logger.log(`A socket with id:${client.id} is disconnected From the server.  `)
   } 
 
-  @SubscribeMessage('user1')
+  @SubscribeMessage('user1')  // socket.io 의 on 메서드 역할
   handleEvent(@MessageBody() data: any) {
+    
+    //###WebRTC 구현 , @ConnectedSocket() client:Socket
+    //client.broadcast.to() //event.roomId
+    
     this.server.emit('user1', data);
     console.log(data);
     //this.server.emit('event1', { name: 'Im Nest' });

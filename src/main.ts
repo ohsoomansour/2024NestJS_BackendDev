@@ -3,6 +3,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import * as session from 'express-session'; //세션
 import { IoAdapter } from '@nestjs/platform-socket.io';
+import { RedisIoAdapter } from './events/redis.adapter';
 /*#git 명령어
  git remote remove origin (기존 원격 저장소 삭제)
  git remote -v (원격 저장소 확인)
@@ -31,16 +32,17 @@ import { IoAdapter } from '@nestjs/platform-socket.io';
     }
    })
 
-
   
-
 
 
  */
 async function bootstrap() {
   const app = await NestFactory.create(AppModule); //반환: NestApplication instance
-  //app.useWebSocketAdapter(new WsAdapter(app));
-  app.useWebSocketAdapter(new IoAdapter(app));
+  const redisIoAdapter = new RedisIoAdapter(app);
+  await redisIoAdapter.connectToRedis();
+  //app.useWebSocketAdapter(redisIoAdapter); //redis 소켓
+  app.useWebSocketAdapter(new IoAdapter(app)); // socket
+  //app.useWebSocketAdapter(new WsAdapter(app));  //웹소켓
   app.enableCors({
     origin: true,
     credentials: true,
