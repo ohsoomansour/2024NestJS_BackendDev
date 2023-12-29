@@ -1,18 +1,5 @@
 /* eslint-disable prettier/prettier */
-import { Logger } from '@nestjs/common';
-import {
-  
-  ConnectedSocket,
-  MessageBody,
-  OnGatewayConnection,
-  OnGatewayDisconnect,
-  OnGatewayInit,
-  SubscribeMessage,
-  WebSocketGateway,
-  WebSocketServer,
-} from '@nestjs/websockets';
-import { Socket } from 'socket.io';
-import { Server} from 'ws';
+
 //import { Server, WebSocket } from 'ws'; VS import { Server, Socket } from 'socket.io';
 /* #1.NestJS에서 웹 소켓 서버에 설정 
 1. 설치 및 설정 
@@ -119,20 +106,67 @@ bootstrap();
     > 컨틀로러 > 서비스 > redis
      constructor(@Inject(CACHE_MANAGER) private cacheManager: Cache) {}
      const value = await this.cacheManager.get(key);
-      
-
-   
- 
- 
   */ 
+ /*
+  * #WebRTC 구현: 
+     https://acstory.tistory.com/534#google_vignette 참조
+   + nestjs chatRoom.service.ts : https://blog.ewq.kr/41 참조
+
+  아래의 3가지 경우 참조: https://velog.io/@fejigu/Socket.IO-client 
+  1. socket.io WebSocket과 함께 작동하는 library:  브로드캐스팅을 지원
+   [Public ] : "연결된 모든 클라이언트에게 보냄, 채팅 메시지가 적절"
+   <서버 측>
+  io.on('connection', (socket) => {
+    socket.on('chat message', (msg) => {
+      io.emit('chat message', msg);  // ✅연결된 모든 클라이언트에게 메시지 통신(브로드 캐스트)
+  
+    });
+  });
+  <클라이언트 측> 
+  socket.on('chat message', (msg) => {
+    console.log(`Received message: ${msg}`);
+  });
+
+  [Private] : "특정 고객에게 메시지를 보냄, 예를들어 알림"
+   <서버 측>
+  io.on('connection', (socket) => {
+    socket.on('send notification', (msg, ✅recipientId) => {
+      io.to(recipientId).emit('notification', msg);  // ✅지정된 수신자에게 메시지 보내기
+  
+    });
+  });
+  <클라이언트 측> 
+  socket.on('notification', (msg) => {
+    console.log(`Received notification: ${msg}`);
+  });
+  [Broadcasting] : 발신자를 제외한 모든 클라이언트에게 메세지가 전송되는 경우
+
+  #room이란? "여러 소켓들이 참여(join)하고 떠날 수 있는(leave) 채널"
+   - socket이 connect 될 때 기본적으로 해당 소켓 id이름의 room에 기본적으로 들어가있다.
+*/
+import { Logger } from '@nestjs/common';
+import {
+  
+  ConnectedSocket,
+  MessageBody,
+  OnGatewayConnection,
+  OnGatewayDisconnect,
+  OnGatewayInit,
+  SubscribeMessage,
+  WebSocketGateway,
+  WebSocketServer,
+} from '@nestjs/websockets';
+import { Socket } from 'socket.io';
+import { Server} from 'ws';
+
 @WebSocketGateway(8080, {
-  path: '/chat',
+  path: '/webrtc',
   cors: '*',
   transports:['websocket']
 })
 export class EventGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
 {
-  private logger = new Logger('chat');
+  private logger = new Logger('webrtc');
   constructor() {
     this.logger.log('constructor');
   }
@@ -151,6 +185,7 @@ export class EventGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
   }
   handleDisconnect(client: Socket) {
     this.logger.log(`A socket with id:${client.id} is disconnected From the server.  `)
+    //leave함수는 위와 마찬가지로 socket.leave('room1');과 같이 작성하면 된다.
   } 
 
   @SubscribeMessage('user1')  // socket.io 의 on 메서드 역할
@@ -163,19 +198,50 @@ export class EventGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
     console.log(data);
     //this.server.emit('event1', { name: 'Im Nest' });
     //로직: 유저 채팅 아이디를 캐시 서비스 로직> redis에서 꺼내온다!
-    
     const returnData = {subscribing: "I receive your message"}
     return returnData
     //return returnData;
   }
   
-  @SubscribeMessage('user2')
-  handleEmit(@MessageBody() data: any) {
-    
-    //console.log(data);
-    
-    return data;
+  @SubscribeMessage('join')
+  handleEmit(@MessageBody() roomId: any, @ConnectedSocket() client: Socket) {
+    this.logger.log('we receive a join event');
+    /*✔️roodId에 따라 원하는 방을 들어가는 개념 
+      >  const roomClients = client.rooms.add(client.id); 
+      > "고유 값만 추가 되어 중복되는 소켓은 못 들어감 "
+       
+    */
+      const roomClients = client.rooms; //고유 값만 추가 가능 
+      const numberOfClients = roomClients.size; 
+      if(numberOfClients === 1) {
+        this.logger.log(`Creating room ${roomId} and emitting room_created socket event`);
+        client.emit('room_created', roomId);
+        client.join(roomId); // Set { <socket.id>, roomId 변수 값 }     
+      } else if (numberOfClients === 2){
+        this.logger.log(`Joining room ${roomId} and emitting room_joined socket event`);
+        client.emit('room_joined', roomId ) //2. roomId를 받으면 -> 클라이언트, start_called 이벤트
+      } else { //1명 이상이면 풀이다!
+        this.logger.log(`Cant't join room ${roomId}, emitting full_room socket event`)
+        client.emit('full_room', roomId);
+      }
+
   } 
+  
+  /*# 같은 room에 있는 모든 소켓들에 보내는 
+    These events are emitted to all the sockets conneted to the same room except the sender.
+  */
+  @SubscribeMessage('start_call')
+  startToCall(@MessageBody() roomId, @ConnectedSocket() client: Socket) {
+    this.logger.log(`Broadcasting start_call event to peers in room ${roomId}`);
+    //지정된 roomId를 가진 수신자에게만 보냄: roomId 가 어디서? 
+    client.broadcast.to(roomId).emit('start_call');  // 112
+  }
 
-
+   //여기까지 안옴
+  @SubscribeMessage('webrtc_offer')
+  receiveWebrtcOffer(@MessageBody() webrtc_offer, @ConnectedSocket() client: Socket ) {
+    console.log(webrtc_offer); 
+    this.logger.log(`Broadcasting webrtc_offer event to peers in room ${webrtc_offer.roomId}`)
+    client.broadcast.to(webrtc_offer.roomId).emit('webrtc_offer', webrtc_offer.sdp);
+  }
 }
