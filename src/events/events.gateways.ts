@@ -110,7 +110,9 @@ bootstrap();
  /*
   * #WebRTC 구현: 
      https://acstory.tistory.com/534#google_vignette 참조
-   + nestjs chatRoom.service.ts : https://blog.ewq.kr/41 참조
+     socket.io - DOCS 참조: https://socket.io/docs/v4/server-api/ 
+     room 참가 방식 참조: https://surprisecomputer.tistory.com/9
+     + nestjs chatRoom.service.ts : https://blog.ewq.kr/41 참조
 
   아래의 3가지 경우 참조: https://velog.io/@fejigu/Socket.IO-client 
   1. socket.io WebSocket과 함께 작동하는 library:  브로드캐스팅을 지원
@@ -166,25 +168,30 @@ import { Server} from 'ws';
 })
 export class EventGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
 {
-  private logger = new Logger('webrtc');
   constructor() {
     this.logger.log('constructor');
   }
-
+  private logger = new Logger('webrtc');
+  private roomToSockets: { [roomId: string]: Socket[] } = {}; //enum 타입
+  
   @WebSocketServer() server: Server
   
+
   afterInit() {
     this.logger.log('init'); //gateway가 실행될 때 가장 먼저 실행
   }
 
   //TypeError: Cannot read properties of undefined (reading 'name')
   handleConnection(@ConnectedSocket() client: Socket) {
-    this.logger.log(`A socket is connectd with the id: ${client.id}`);    //undefined
-    //console.log(client)
+    this.logger.log(`A socket is connectd with the id: ${client.id}`);   
+    //확용
+    
     
   }
+
   handleDisconnect(client: Socket) {
     this.logger.log(`A socket with id:${client.id} is disconnected From the server.  `)
+    
     //leave함수는 위와 마찬가지로 socket.leave('room1');과 같이 작성하면 된다.
   } 
 
@@ -206,23 +213,49 @@ export class EventGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
   @SubscribeMessage('join')
   handleEmit(@MessageBody() roomId: any, @ConnectedSocket() client: Socket) {
     this.logger.log('we receive a join event');
+    
     /*✔️roodId에 따라 원하는 방을 들어가는 개념 
       >  const roomClients = client.rooms.add(client.id); 
       > "고유 값만 추가 되어 중복되는 소켓은 못 들어감 "
-       
+      
+      # 소켓이 방에 들아가는 개념을 모름 
+       > 일단 기본적으로 룸에 소켓이 들어가 있다. 
     */
-      const roomClients = client.rooms; //고유 값만 추가 가능 
-      const numberOfClients = roomClients.size; 
-      if(numberOfClients === 1) {
+       // 소켓이 참여하고 있는 방을 의미함 
+      client.join(roomId);
+      const sJoining_Room = client.rooms // 소켓이 입장된 방의 roomId를 알 수 있음
+      console.log(sJoining_Room)
+      // 방에 대한 소켓 매핑 초기화, *roomToSockets: { [roomId: string]: Socket[] } = {};
+      if (!this.roomToSockets[roomId]) {
+        this.roomToSockets[roomId] = [];
+      }
+      
+      //최대 숫자를 몇으로 할 건지 ? 
+      const numberOfClients = this.roomToSockets[roomId].length; 
+      if(numberOfClients === 0) { // []
         this.logger.log(`Creating room ${roomId} and emitting room_created socket event`);
-        client.emit('room_created', roomId);
-        client.join(roomId); // Set { <socket.id>, roomId 변수 값 }     
-      } else if (numberOfClients === 2){
+        this.roomToSockets[roomId].push(client); // "room1" : [소켓1, 소켓2 ... ]
+        if (this.roomToSockets[roomId]) {
+          this.roomToSockets[roomId].forEach((s) => {
+            s.emit('room_created', roomId);
+          });
+        }
+        //시그널링 서버, 다른 peer에게 데이터를 전송한다. 
+      } else if (numberOfClients >= 1 ){
         this.logger.log(`Joining room ${roomId} and emitting room_joined socket event`);
-        client.emit('room_joined', roomId ) //2. roomId를 받으면 -> 클라이언트, start_called 이벤트
-      } else { //1명 이상이면 풀이다!
+        if (this.roomToSockets[roomId]) {
+          this.roomToSockets[roomId].forEach((s) => {
+            s.emit('room_joined', roomId);
+          });
+        }
+        
+      } else if ( numberOfClients > 4 ){ //3명 이상이면 full
         this.logger.log(`Cant't join room ${roomId}, emitting full_room socket event`)
-        client.emit('full_room', roomId);
+        if (this.roomToSockets[roomId]) {
+          this.roomToSockets[roomId].forEach((s) => {
+            s.emit('full_room', roomId);
+          });
+        }
       }
 
   } 
@@ -231,17 +264,58 @@ export class EventGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
     These events are emitted to all the sockets conneted to the same room except the sender.
   */
   @SubscribeMessage('start_call')
-  startToCall(@MessageBody() roomId, @ConnectedSocket() client: Socket) {
+  startToCall(@MessageBody() roomId) {
     this.logger.log(`Broadcasting start_call event to peers in room ${roomId}`);
     //지정된 roomId를 가진 수신자에게만 보냄: roomId 가 어디서? 
-    client.broadcast.to(roomId).emit('start_call');  // 112
+    //const result = client.broadcast.to(roomId).emit('start_call');
+    if (this.roomToSockets[roomId]) {
+      this.roomToSockets[roomId].forEach((s) => {
+        s.emit('start_call');
+      });
+    }  
+    
   }
 
-   //여기까지 안옴
+
   @SubscribeMessage('webrtc_offer')
-  receiveWebrtcOffer(@MessageBody() webrtc_offer, @ConnectedSocket() client: Socket ) {
-    console.log(webrtc_offer); 
+  receiveWebRTCOffer(@MessageBody() webrtc_offer) {
     this.logger.log(`Broadcasting webrtc_offer event to peers in room ${webrtc_offer.roomId}`)
-    client.broadcast.to(webrtc_offer.roomId).emit('webrtc_offer', webrtc_offer.sdp);
+    if (this.roomToSockets[webrtc_offer.roomId]) {
+      this.roomToSockets[webrtc_offer.roomId].forEach((s) => {
+        s.emit('webrtc_answer', webrtc_offer.sdp);
+      });
+    }
   }
+
+  @SubscribeMessage('webrtc_answer')
+  receiveWebRTCAnswer(@MessageBody() webrtc_Answer) {
+    this.logger.log(`Broadcasting webrtc_Answer event to peers in room ${webrtc_Answer.roomId}`)
+    console.log(webrtc_Answer);
+    /*# sdp의 이해 
+     sdp: {
+      type: 'answer',
+      sdp: 'v=0\r\n' +
+        'o=- 6881990246827507780 2 IN IP4 127.0.0.1\r\n' +
+          🔹    "Session-ID"          "IP4는 Network Type" "127.0.0.1는 Address Type"
+        's=-\r\n' +
+        't=0 0\r\n' +
+        'a=extmap-allow-mixed\r\n' +
+          🔹a는 "미디어 속성을 의미 "
+        'a=msid-semantic: WMS\r\n'
+    }
+    
+    
+    */
+  }
+  @SubscribeMessage('webrtc_ice_candidate')
+  receiveWebRTCIceCandidate(@MessageBody() webrtc_ice_candidate) {
+    this.logger.log(`Broadcasting webrtc_ice_candidate event to peers in room ${webrtc_ice_candidate.roomId}`)
+    if (this.roomToSockets[webrtc_ice_candidate.roomId]) {
+      this.roomToSockets[webrtc_ice_candidate.roomId].forEach((s) => {
+        s.emit('webrtc_ice_candidate', webrtc_ice_candidate);
+      });
+    }
+
+  }
+
 }
