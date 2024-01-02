@@ -75,7 +75,7 @@ bootstrap();
    [redis DB 설치 및 설정] 
     > 레디스의 GUI 툴: set d test  "key가 d, value가 test의 값을 생성"
    
-
+  
    [redis와 typeORM과 캐싱 설정]
    방법1. TypeOrm 
    TypeOrmModule.forRoot({
@@ -148,7 +148,6 @@ bootstrap();
 */
 import { Logger } from '@nestjs/common';
 import {
-  
   ConnectedSocket,
   MessageBody,
   OnGatewayConnection,
@@ -161,6 +160,8 @@ import {
 import { Socket } from 'socket.io';
 import { Server} from 'ws';
 
+
+
 @WebSocketGateway(8080, {
   path: '/webrtc',
   cors: '*',
@@ -170,46 +171,62 @@ export class EventGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
 {
   constructor() {
     this.logger.log('constructor');
+    
   }
+  
   private logger = new Logger('webrtc');
   private roomToSockets: { [roomId: string]: Socket[] } = {}; //enum 타입
+  private streamingroomToSockets: { [roomId: string]: Socket[] } = {}
+  private connectedClients: Map<string, { userName: string, room: string }> = new Map();
   
-  @WebSocketServer() server: Server
+  @WebSocketServer() 
+  server: Server;
   
-
   afterInit() {
     this.logger.log('init'); //gateway가 실행될 때 가장 먼저 실행
   }
-
-  //TypeError: Cannot read properties of undefined (reading 'name')
   handleConnection(@ConnectedSocket() client: Socket) {
     this.logger.log(`A socket is connectd with the id: ${client.id}`);   
-    //확용
-    
-    
   }
-
+  //################################### 채팅 구현 #################################### 
   handleDisconnect(client: Socket) {
     this.logger.log(`A socket with id:${client.id} is disconnected From the server.  `)
-    
+    this.connectedClients.delete(client.id);
     //leave함수는 위와 마찬가지로 socket.leave('room1');과 같이 작성하면 된다.
   } 
-
-  @SubscribeMessage('user1')  // socket.io 의 on 메서드 역할
-  handleEvent(@MessageBody() data: any) {
+  @SubscribeMessage('joinRoom')
+  joinRoom(@ConnectedSocket() client: Socket, @MessageBody() userInfo:{ userName: string, roomId: string }) {
+    this.logger.log(`${userInfo.userName} entered the room`);
+    this.streamingroomToSockets[userInfo.roomId].push(client)
+    if(this.streamingroomToSockets[userInfo.roomId]){
+      this.streamingroomToSockets[userInfo.roomId].forEach((c) => {
+        c.emit('userJoined', {userName: userInfo.userName});
+      })
+    }
+    //this.connectedClients.set(client.id, {userName: userInfo.userName, room: userInfo.roomId });
     
-    //###WebRTC 구현 , @ConnectedSocket() client:Socket
-    //client.broadcast.to() //event.roomId
     
-    this.server.emit('user1', data);
-    console.log(data);
-    //this.server.emit('event1', { name: 'Im Nest' });
-    //로직: 유저 채팅 아이디를 캐시 서비스 로직> redis에서 꺼내온다!
-    const returnData = {subscribing: "I receive your message"}
-    return returnData
-    //return returnData;
   }
   
+  
+  @SubscribeMessage('message') 
+  handleEvent(@MessageBody() messages) {
+    this.logger.log(`We received a Message!`)
+    console.log(messages)
+    //this.connectedClients.get() 사용 
+    this.server.emit('message', messages);
+    
+    //로직: 유저 채팅 아이디를 캐시 서비스 로직> redis에서 꺼내온다!
+
+    //return messages
+
+  }
+  
+
+
+  //########################################################################################### 
+
+
   @SubscribeMessage('join')
   handleEmit(@MessageBody() roomId: any, @ConnectedSocket() client: Socket) {
     this.logger.log('we receive a join event');
@@ -278,19 +295,36 @@ export class EventGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
 
 
   @SubscribeMessage('webrtc_offer')
-  receiveWebRTCOffer(@MessageBody() webrtc_offer) {
+  async receiveWebRTCOffer(@MessageBody() webrtc_offer) {
     this.logger.log(`Broadcasting webrtc_offer event to peers in room ${webrtc_offer.roomId}`)
-    if (this.roomToSockets[webrtc_offer.roomId]) {
-      this.roomToSockets[webrtc_offer.roomId].forEach((s) => {
-        s.emit('webrtc_answer', webrtc_offer.sdp);
-      });
+
+    try {
+      
+      if (this.roomToSockets[webrtc_offer.roomId]) {
+        this.roomToSockets[webrtc_offer.roomId].forEach((s) => {
+        /*Testcase1.원래는 로직은 webrtc_offer로 가서 -> createSDPAnser로 날리는게 맞음
+          Testcase2. 그런데 현재는 peer가 하나를 가지고 두개를 가정하는 시험이기 때문에 answer를 받음 */
+          s.emit('webrtc_answer', webrtc_offer.sdp);
+        });
+      }
+    } catch (e) {
+      console.error(e);
     }
+    
   }
 
   @SubscribeMessage('webrtc_answer')
   receiveWebRTCAnswer(@MessageBody() webrtc_Answer) {
     this.logger.log(`Broadcasting webrtc_Answer event to peers in room ${webrtc_Answer.roomId}`)
-    console.log(webrtc_Answer);
+    console.log(webrtc_Answer)
+    
+
+
+    if (this.roomToSockets[webrtc_Answer.roomId]) {
+      this.roomToSockets[webrtc_Answer.roomId].forEach((s) => {
+        s.emit('webrtc_offer', webrtc_Answer.sdp);
+      });
+    }
     /*# sdp의 이해 
      sdp: {
       type: 'answer',
@@ -299,8 +333,8 @@ export class EventGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
           🔹    "Session-ID"          "IP4는 Network Type" "127.0.0.1는 Address Type"
         's=-\r\n' +
         't=0 0\r\n' +
-        'a=extmap-allow-mixed\r\n' +
-          🔹a는 "미디어 속성을 의미 "
+        'a=sendrecv\r\n'
+          🔹단말은 미디어 송신 및 수신 가능 예) 전화기로 통화가 가능한 채널
         'a=msid-semantic: WMS\r\n'
     }
     
@@ -310,6 +344,7 @@ export class EventGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
   @SubscribeMessage('webrtc_ice_candidate')
   receiveWebRTCIceCandidate(@MessageBody() webrtc_ice_candidate) {
     this.logger.log(`Broadcasting webrtc_ice_candidate event to peers in room ${webrtc_ice_candidate.roomId}`)
+    //console.log(webrtc_ice_candidate);
     if (this.roomToSockets[webrtc_ice_candidate.roomId]) {
       this.roomToSockets[webrtc_ice_candidate.roomId].forEach((s) => {
         s.emit('webrtc_ice_candidate', webrtc_ice_candidate);
