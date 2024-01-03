@@ -116,6 +116,10 @@ bootstrap();
 
   아래의 3가지 경우 참조: https://velog.io/@fejigu/Socket.IO-client 
   1. socket.io WebSocket과 함께 작동하는 library:  브로드캐스팅을 지원
+   ✅ 웹 소켓은 socket.io에서 사용하는 to 기능, room기능이 없음  
+      > "즉 room을 만들어서 써야되고 그리고 프론트 socket-io-client에서 보낸 socket을 웹소켓 안에서 사용 가능"
+        프론트엔드 socket -> BE 웹소켓 연동이 가능하다!
+  
    [Public ] : "연결된 모든 클라이언트에게 보냄, 채팅 메시지가 적절"
    <서버 측>
   io.on('connection', (socket) => {
@@ -158,6 +162,7 @@ import {
   WebSocketServer,
 } from '@nestjs/websockets';
 import { Socket } from 'socket.io';
+import { ChatService } from 'src/chat/chat.service';
 import { Server} from 'ws';
 
 
@@ -165,20 +170,27 @@ import { Server} from 'ws';
 @WebSocketGateway(8080, {
   path: '/webrtc',
   cors: '*',
-  transports:['websocket']
+  transports:['websocket'],
+  
 })
 export class EventGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
 {
-  constructor() {
+  constructor(
+    private readonly chatService : ChatService
+  ) {
     this.logger.log('constructor');
     
   }
   
   private logger = new Logger('webrtc');
   private roomToSockets: { [roomId: string]: Socket[] } = {}; //enum 타입
-  private streamingroomToSockets: { [roomId: string]: Socket[] } = {}
+  private streamingroomToSockets: { [roomId: string]: Socket[] } = {};
+  private roomUsers : { [roomId: string]: string[] } = {};
   private connectedClients: Map<string, { userName: string, room: string }> = new Map();
-  
+  private init: number = 0;
+  private msgArr: string[]
+
+
   @WebSocketServer() 
   server: Server;
   
@@ -187,6 +199,14 @@ export class EventGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
   }
   handleConnection(@ConnectedSocket() client: Socket) {
     this.logger.log(`A socket is connectd with the id: ${client.id}`);   
+    /*
+    if(this.init < 1 ){
+      client.disconnect();
+      this.init += 1;
+      this.logger.log('초기 소켓 접속 끊김!');
+    }
+    */
+    
   }
   //################################### 채팅 구현 #################################### 
   handleDisconnect(client: Socket) {
@@ -194,29 +214,69 @@ export class EventGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
     this.connectedClients.delete(client.id);
     //leave함수는 위와 마찬가지로 socket.leave('room1');과 같이 작성하면 된다.
   } 
+
+
+
   @SubscribeMessage('joinRoom')
   joinRoom(@ConnectedSocket() client: Socket, @MessageBody() userInfo:{ userName: string, roomId: string }) {
+    console.log(client.data);
     this.logger.log(`${userInfo.userName} entered the room`);
+    //#1. 유저 이름의 리스트를 보여주는 기능
+    //#유저의 리스트를 보여준다.
+    if (!this.roomUsers[userInfo.roomId]) {
+      this.roomUsers[userInfo.roomId] = [];  //초기화 
+    }
+    this.roomUsers[userInfo.roomId].push(userInfo.userName);
+    
+    this.server.emit('userJoined', {
+      userList: this.roomUsers[userInfo.roomId]
+    })
+    
+    //#2. 같은 room에 있는 소켓들에 한 명의 참여자의 알림기능의 메세지를 보내는 기능 
+    if (!this.streamingroomToSockets[userInfo.roomId]) {
+      this.streamingroomToSockets[userInfo.roomId] = [];  //초기화 
+    }
+    /*
     this.streamingroomToSockets[userInfo.roomId].push(client)
     if(this.streamingroomToSockets[userInfo.roomId]){
-      this.streamingroomToSockets[userInfo.roomId].forEach((c) => {
-        c.emit('userJoined', {userName: userInfo.userName});
+      this.streamingroomToSockets[userInfo.roomId].forEach((s:Socket) => {
+        s.emit('userJoined', {userName: `${userInfo.userName} 님이 참가하였습니다.`});
+        
       })
     }
+    */
+
+
+
     //this.connectedClients.set(client.id, {userName: userInfo.userName, room: userInfo.roomId });
     
     
   }
   
+  /*메세지 저장: DB에 저장하지 않고 메모리에 기억 후 일정시간이 지난 후 비워두는 용도로 사용 예정
+   https://velog.io/@hyeok_1212/%EC%8B%A4%EC%8B%9C%EA%B0%84-%EC%B1%84%ED%8C%85-%EC%84%9C%EB%B9%84%EC%8A%A4-%EB%A7%8C%EB%93%A4%EC%96%B4%EB%B3%B4%EA%B8%B0-2
   
+  */
   @SubscribeMessage('message') 
-  handleEvent(@MessageBody() messages) {
+  handleEvent(@MessageBody() messages, @ConnectedSocket() client: Socket) {
     this.logger.log(`We received a Message!`)
-    console.log(messages)
     //this.connectedClients.get() 사용 
-    this.server.emit('message', messages);
+    //룸의 user의 소켓에만 보낸다!
+    console.log(client.id)
+    if(!this.msgArr) {
+      this.msgArr = [];
+
+    }
+    const filteredMessage = this.chatService.cleanBotAction(messages);
+    this.msgArr.push(filteredMessage)
+    const managedMessages = this.chatService.chattingManagement(this.msgArr);
+    console.log(managedMessages);
+    client.emit('message', managedMessages);
     
-    //로직: 유저 채팅 아이디를 캐시 서비스 로직> redis에서 꺼내온다!
+    //#대화 내용의 길이 또는 날짜가 하루 넘어가면 삭제
+    //#클린 봇 구현: 욕설 regExp 등 사용하여 욕설 삭제 
+     
+
 
     //return messages
 
