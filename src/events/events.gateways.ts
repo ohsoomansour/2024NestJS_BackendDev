@@ -163,6 +163,9 @@ import {
 } from '@nestjs/websockets';
 import { Socket } from 'socket.io';
 import { ChatService } from 'src/chat/chat.service';
+import { ChatUserDto } from 'src/chat/dtos/chat-user.dto';
+import { ProfanityFilterPipe } from 'src/chat/profanity-filter.pipe';
+import { ChatValidation } from 'src/chat/validation/chatUser.validation';
 import { Server} from 'ws';
 
 
@@ -176,7 +179,8 @@ import { Server} from 'ws';
 export class EventGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
 {
   constructor(
-    private readonly chatService : ChatService
+    private readonly chatService : ChatService,
+    private readonly chatValidation : ChatValidation
   ) {
     this.logger.log('constructor');
     
@@ -186,10 +190,11 @@ export class EventGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
   private roomToSockets: { [roomId: string]: Socket[] } = {}; //enum 타입
   private streamingroomToSockets: { [roomId: string]: Socket[] } = {};
   private roomUsers : { [roomId: string]: string[] } = {};
+  
   private connectedClients: Map<string, { userName: string, room: string }> = new Map();
   private init: number = 0;
   private msgArr: string[]
-
+  private count:number;
 
   @WebSocketServer() 
   server: Server;
@@ -218,8 +223,14 @@ export class EventGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
 
 
   @SubscribeMessage('joinRoom')
-  joinRoom(@ConnectedSocket() client: Socket, @MessageBody() userInfo:{ userName: string, roomId: string }) {
-    console.log(client.data);
+  async joinRoom(@ConnectedSocket() client: Socket, @MessageBody() userInfo: ChatUserDto): Promise<void> { 
+    try {
+      console.log(userInfo)
+      await this.chatValidation.validateUserDto(userInfo);
+    } catch(e) {
+      console.error(e);
+    }
+
     this.logger.log(`${userInfo.userName} entered the room`);
     //#1. 유저 이름의 리스트를 보여주는 기능
     //#유저의 리스트를 보여준다.
@@ -258,20 +269,39 @@ export class EventGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
   
   */
   @SubscribeMessage('message') 
-  handleEvent(@MessageBody() messages, @ConnectedSocket() client: Socket) {
+  async handleEvent(@MessageBody() messages, @ConnectedSocket() client: Socket): Promise<void> {
     this.logger.log(`We received a Message!`)
     //this.connectedClients.get() 사용 
     //룸의 user의 소켓에만 보낸다!
-    console.log(client.id)
+
     if(!this.msgArr) {
       this.msgArr = [];
-
     }
-    const filteredMessage = this.chatService.cleanBotAction(messages);
-    this.msgArr.push(filteredMessage)
-    const managedMessages = this.chatService.chattingManagement(this.msgArr);
-    console.log(managedMessages);
-    client.emit('message', managedMessages);
+    console.log(this.roomUsers);
+    //this.connectedClients.set()
+    try {
+      const filteredMessage = this.chatService.cleanBotAction(messages);
+      
+      //#***을 포함하고 있을 때마다 카운트 +1 > 3회 이상은 레드카드 주고 얼려버린다!
+      if(this.chatService.checkProfanity(filteredMessage)) {
+        if(!this.count){
+          this.count = 0; //초기 값 세팅
+        }
+        this.count += 1;
+        if( this.count >= 3 ){
+          client.emit('message', new ProfanityFilterPipe().transform(messages) );
+        }
+      }
+      this.msgArr.push(filteredMessage)
+      //const managedMessages = this.chatService.chattingManagement(this.msgArr);
+      client.emit('message', this.msgArr);
+      //욕설이 5번되면 
+      
+
+
+    } catch (e) {
+      console.error(e);
+    }
     
     //#대화 내용의 길이 또는 날짜가 하루 넘어가면 삭제
     //#클린 봇 구현: 욕설 regExp 등 사용하여 욕설 삭제 

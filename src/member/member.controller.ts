@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { MemberService } from './member.service';
 import { Request, Response } from 'express';
+import { CreateMemberInput } from './dtos/member.dto';
 /* SESSION  COOKIE란? 
   세션의 동작 방식
  > 클라이언트가 서버에 접속 시 세션 ID를 발급 받음
@@ -52,7 +53,7 @@ export class MemberController {
    * @Explain : 클라인트에서 회원가입 POST REQUEST에 대한 처리
    */
   @Post('/join')
-  signUpForMembership(@Body() memberInfo) {
+  signUpForMembership(@Body() memberInfo: CreateMemberInput) {
     try {
       return this.memberService.signUpForMembership(memberInfo);
     } catch {
@@ -66,28 +67,33 @@ export class MemberController {
   /*
    * @Author : OSOOMAN
    * @Date : 2023.12.23
-   * @Function : 세션 확인(개발 용도)
+   * @Function : 로그인 후 세션 설정
    * @Parm : request, response
-   * @Return : 없음(세션)
+   * @Return : ok가 true이거나 false
    * @Explain : 로그인 후 세션 만료 기간을 테스트하고 세션 유지 확인
    */
 
   //로그인 버튼을 누르면 홈으로 이동
   @Get('/login/home')
-  async logIn(@Body() loginInfo, @Req() req: Request, @Res() res: Response) {
-    //console.log(loginInfo);
+  async logIn(
+    //@Body() loginInfo,  # @Body 또는 아래 @Req req 둘 중 하나만 써야된다
+    @Req() req: Request,
+    @Res() res: Response,
+  ) {
     try {
-      //세션 설정
-      const session: any = req.session;
-      session.user = loginInfo.userId; //사용자가 정의한 임의의 지정 값2
-      //비즈니스 로직에서 유저 아이디 > memberType를 가져와야 되나
-      const memberType = await this.memberService.getMemberType(loginInfo);
-      session.memberType = memberType;
-      session.cookie.maxAge = 1000 * 60; //만료 시간 : 60초
-      res.status(HttpStatus.OK).send({ session: session });
-      //console.log(session); undefined
-      this.memberService.login(loginInfo);
-      console.log(`${session.user} 회원님이 로그인이 하였습니다.`);
+      const result = await this.memberService.login(req.body); // {userId:"Admin4", password:"Adimin4"}
+      if (result.ok) {
+        //#세션 설정
+        const session: any = req.session;
+        session.user = req.body.userId; //사용자가 정의한 임의의 지정 값2
+        //비즈니스 로직에서 유저 아이디 > memberType를 가져와야 되나
+        const memberType = await this.memberService.getMemberType(req.body);
+        session.memberType = memberType;
+        session.cookie.maxAge = 1000 * 60; //만료 시간 : 60초
+        res.status(HttpStatus.OK).send({ session: session });
+        console.log(`${session.user} 회원님이 로그인이 하였습니다.`);
+      }
+      return result;
     } catch (e) {
       console.log(e);
     }

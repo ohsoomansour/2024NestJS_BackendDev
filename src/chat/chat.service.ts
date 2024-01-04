@@ -1,5 +1,6 @@
 /* eslint-disable prettier/prettier */
-import { Injectable } from "@nestjs/common";
+import { Body, Injectable} from "@nestjs/common";
+
 /*
  * @Date : 2024.01.03 (수)
  * @Author : osm    
@@ -12,7 +13,7 @@ import { Injectable } from "@nestjs/common";
 @Injectable()
 export class ChatService {
   
-  private profanityList: string[] = ['씨발','씨발년', '개새끼','개새','개세', '십새','씹새', 'fuck', '뻑큐', ]
+  private profanityList: string[] = ['씨발','씨발년', '개새끼','개새','개세', '십새','씹새', 'fuck', '뻑큐' ]
   private filteredText :string
   cleanBotAction(text:string) {
     this.profanityList;
@@ -29,13 +30,21 @@ export class ChatService {
     console.log(this.filteredText);
     return this.filteredText;
   }
-
+  checkProfanity(filteredMessage:string) {
+    const result = new RegExp(/\*\*\*/gi).test(filteredMessage);
+    return result;
+  }
+  
+  
   //#폭탄 메시지 방지: 채팅의 길이가 30 얼마 이상 넘어가면 삭제:  [].
-  chattingManagement(msgArr:string[]) {
+  chattingManagement(@Body() msgArr:string[]){
+    return msgArr;
+    /*
     if(msgArr.length >= 10) {
       return msgArr.slice(4)
     } else  {
       return msgArr
     }
+    */
   }
 }

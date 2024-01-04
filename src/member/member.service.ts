@@ -117,12 +117,17 @@ export class MemberService {
         };
       }
       const confirmPw = await member.checkingPw(password);
+      //console.log(confirmPw); //undefined >> "true 외 전부"
       if (!confirmPw) {
         return {
           ok: false,
           error: 'The password is wrong',
         };
       }
+      return {
+        ok: true,
+        error: '',
+      };
     } catch (e) {
       console.error(e);
     }
@@ -133,7 +138,7 @@ export class MemberService {
       const member = await this.members.findOne({
         where: { userId },
       });
-      console.log(member);
+      //console.log(member);
       if (member) {
         return {
           memberType: member.memberType,

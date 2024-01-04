@@ -3,6 +3,8 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import * as session from 'express-session'; //세션
 import { IoAdapter } from '@nestjs/platform-socket.io';
+import { ValidationPipe } from '@nestjs/common/pipes/validation.pipe';
+
 //import { RedisIoAdapter } from './events/redis.adapter';
 
 /*#git 명령어
@@ -39,11 +41,16 @@ import { IoAdapter } from '@nestjs/platform-socket.io';
  */
 async function bootstrap() {
   const app = await NestFactory.create(AppModule); //반환: NestApplication instance
+  app.useGlobalPipes(
+    new ValidationPipe({
+      disableErrorMessages: true, // 프로덕트 단계에서 세부 에러 비활성
+    }),
+  );
   //const redisIoAdapter = new RedisIoAdapter(app);
   //await redisIoAdapter.connectToRedis();
   //app.useWebSocketAdapter(redisIoAdapter); //redis 소켓
-  app.useWebSocketAdapter(new IoAdapter(app)); // socket
   //app.useWebSocketAdapter(new WsAdapter(app));  //웹소켓
+  app.useWebSocketAdapter(new IoAdapter(app)); // socket
   app.enableCors({
     origin: true,
     credentials: true,

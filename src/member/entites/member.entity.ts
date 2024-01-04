@@ -39,10 +39,10 @@ export class Member extends CoreEntity {
 
   async checkingPw(reqPassword : string) : Promise<boolean> {
     try {
-      const confirm = await bcrypt.compare(reqPassword, this.password);
-      return confirm;
+      const ok = await bcrypt.compare(reqPassword, this.password);
+      return ok;
     } catch(e) {
-      throw new InternalServerErrorException();
+      throw new InternalServerErrorException('The password is wrong!');
     }
   } 
 

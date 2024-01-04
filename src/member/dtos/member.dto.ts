@@ -1,5 +1,6 @@
 /* eslint-disable prettier/prettier */
 
+import { IsEmail, IsString } from "class-validator";
 import { CoreOutput } from "src/common/dtos/output.dto";
 
 /*
@@ -14,6 +15,8 @@ import { CoreOutput } from "src/common/dtos/output.dto";
   */
 export class CreateMemberInput
 {
+  @IsString()
+  @IsEmail() 
   userId: string;
   password: string;
   address: string;
