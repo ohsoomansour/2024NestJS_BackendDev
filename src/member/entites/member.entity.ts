@@ -12,6 +12,9 @@ export class Member extends CoreEntity {
   @Column()
   password: string;
 
+  @Column({nullable : true})
+  name: string;
+
   @Column()
   address: string;
   /*🚨컬럼 생성 시 문제 발생: 

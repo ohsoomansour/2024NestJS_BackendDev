@@ -11,7 +11,7 @@ import {
 } from '@nestjs/common';
 import { MemberService } from './member.service';
 import { Request, Response } from 'express';
-import { CreateMemberInput } from './dtos/member.dto';
+import { CreateMemberInput } from './dtos/regMember.dto';
 /* SESSION  COOKIE란? 
   세션의 동작 방식
  > 클라이언트가 서버에 접속 시 세션 ID를 발급 받음

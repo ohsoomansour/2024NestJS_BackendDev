@@ -150,7 +150,7 @@ bootstrap();
   #room이란? "여러 소켓들이 참여(join)하고 떠날 수 있는(leave) 채널"
    - socket이 connect 될 때 기본적으로 해당 소켓 id이름의 room에 기본적으로 들어가있다.
 */
-import { Logger } from '@nestjs/common';
+import { Body, Logger } from '@nestjs/common';
 import {
   ConnectedSocket,
   MessageBody,
@@ -183,16 +183,13 @@ export class EventGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
     private readonly chatValidation : ChatValidation
   ) {
     this.logger.log('constructor');
-    
   }
   
   private logger = new Logger('webrtc');
   private roomToSockets: { [roomId: string]: Socket[] } = {}; //enum 타입
   private streamingroomToSockets: { [roomId: string]: Socket[] } = {};
   private roomUsers : { [roomId: string]: string[] } = {};
-  
   private connectedClients: Map<string, { userName: string, room: string }> = new Map();
-  private init: number = 0;
   private msgArr: string[]
   private count:number;
 
@@ -204,63 +201,55 @@ export class EventGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
   }
   handleConnection(@ConnectedSocket() client: Socket) {
     this.logger.log(`A socket is connectd with the id: ${client.id}`);   
-    /*
-    if(this.init < 1 ){
-      client.disconnect();
-      this.init += 1;
-      this.logger.log('초기 소켓 접속 끊김!');
-    }
-    */
     
   }
   //################################### 채팅 구현 #################################### 
   handleDisconnect(client: Socket) {
     this.logger.log(`A socket with id:${client.id} is disconnected From the server.  `)
     this.connectedClients.delete(client.id);
-    //leave함수는 위와 마찬가지로 socket.leave('room1');과 같이 작성하면 된다.
+   
   } 
 
-
-
-  @SubscribeMessage('joinRoom')
-  async joinRoom(@ConnectedSocket() client: Socket, @MessageBody() userInfo: ChatUserDto): Promise<void> { 
+  @SubscribeMessage('joinRoom') //json body이면 가능한가
+  async joinRoom(@ConnectedSocket() client: Socket, @Body() userInfo: ChatUserDto): Promise<void> { 
+    console.log(userInfo);
+    
     try {
-      console.log(userInfo)
-      await this.chatValidation.validateUserDto(userInfo);
-    } catch(e) {
-      console.error(e);
-    }
+      
+      await this.chatValidation.validateUserDto(userInfo); 
+      
+      this.logger.log(`${userInfo.userName} entered the room`);
 
-    this.logger.log(`${userInfo.userName} entered the room`);
-    //#1. 유저 이름의 리스트를 보여주는 기능
-    //#유저의 리스트를 보여준다.
-    if (!this.roomUsers[userInfo.roomId]) {
-      this.roomUsers[userInfo.roomId] = [];  //초기화 
-    }
-    this.roomUsers[userInfo.roomId].push(userInfo.userName);
-    
-    this.server.emit('userJoined', {
-      userList: this.roomUsers[userInfo.roomId]
-    })
-    
-    //#2. 같은 room에 있는 소켓들에 한 명의 참여자의 알림기능의 메세지를 보내는 기능 
-    if (!this.streamingroomToSockets[userInfo.roomId]) {
-      this.streamingroomToSockets[userInfo.roomId] = [];  //초기화 
-    }
-    /*
-    this.streamingroomToSockets[userInfo.roomId].push(client)
-    if(this.streamingroomToSockets[userInfo.roomId]){
-      this.streamingroomToSockets[userInfo.roomId].forEach((s:Socket) => {
-        s.emit('userJoined', {userName: `${userInfo.userName} 님이 참가하였습니다.`});
-        
+      //#1. 유저 이름의 리스트를 보여주는 기능
+      //#유저의 리스트를 보여준다.
+      if (!this.roomUsers[userInfo.roomId]) {
+        this.roomUsers[userInfo.roomId] = [];  //초기화 
+      }
+      this.roomUsers[userInfo.roomId].push(userInfo.userName);
+      
+      this.server.emit('userJoined', {
+        userList: this.roomUsers[userInfo.roomId]
       })
-    }
-    */
-
-
-
-    //this.connectedClients.set(client.id, {userName: userInfo.userName, room: userInfo.roomId });
+      
+      //#2. 같은 room에 있는 소켓들에 한 명의 참여자의 알림기능의 메세지를 보내는 기능 
+      if (!this.streamingroomToSockets[userInfo.roomId]) {
+        this.streamingroomToSockets[userInfo.roomId] = [];  //초기화 
+      }
+      /*
+      this.streamingroomToSockets[userInfo.roomId].push(client)
+      if(this.streamingroomToSockets[userInfo.roomId]){
+        this.streamingroomToSockets[userInfo.roomId].forEach((s:Socket) => {
+          s.emit('userJoined', {userName: `${userInfo.userName} 님이 참가하였습니다.`});
+          
+        })
+      }
+      */
+    } catch(e) {
+      this.logger.error('userId 속성 값이 빈 문자열 또는 roomId의 속성 값이 null 또는 undefined입니다!');
+      this.logger.debug('스트리밍에서 채팅창의 닉네임 입력값 및 room의 id값을 확인하세요!');
+    } 
     
+    //this.connectedClients.set(client.id, {userName: userInfo.userName, room: userInfo.roomId });
     
   }
   
@@ -277,8 +266,7 @@ export class EventGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
     if(!this.msgArr) {
       this.msgArr = [];
     }
-    console.log(this.roomUsers);
-    //this.connectedClients.set()
+
     try {
       const filteredMessage = this.chatService.cleanBotAction(messages);
       
@@ -312,11 +300,7 @@ export class EventGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
 
   }
   
-
-
   //########################################################################################### 
-
-
   @SubscribeMessage('join')
   handleEmit(@MessageBody() roomId: any, @ConnectedSocket() client: Socket) {
     this.logger.log('we receive a join event');

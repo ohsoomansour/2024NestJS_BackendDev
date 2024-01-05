@@ -6,7 +6,7 @@ export class ChatUserDto {
   @IsNotEmpty()
   userName: string;
   
-  @IsNotEmpty()
   @IsUUID()
+  @IsNotEmpty()
   roomId: string;
 }

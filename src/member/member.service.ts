@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Member } from './entites/member.entity';
-import { CreateMemberInput, CreateMemberOutput } from './dtos/member.dto';
+import { CreateMemberInput, CreateMemberOutput } from './dtos/regMember.dto';
 import { LoginInput, LoginOutput, MemberType } from './dtos/login.dto';
 /* priavate only members: Repository<member> "member엔티티를 타입"
   1.Repository 만들어서 생성자 함수에 주입 시켜줘야됨
@@ -148,19 +148,6 @@ export class MemberService {
           memberType: '멤버 타입을 알 수 없습니다',
         };
       }
-    } catch (e) {
-      console.error(e);
-    }
-  }
-
-  async getAllmembers(): Promise<Member[]> {
-    try {
-      const members = await this.members.find({
-        order: {
-          id: 'DESC',
-        },
-      });
-      return members;
     } catch (e) {
       console.error(e);
     }

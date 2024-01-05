@@ -11,7 +11,9 @@ import {
   Res,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
-import { MemberService } from 'src/member/member.service';
+import { AdminService } from './admin.service';
+import { MyParamPipe } from './validation/admin-memberParam.pipe';
+import { UpdateMemberInfo } from 'src/member/dtos/updateMember.dto';
 /* ******************************* 🚨route 주의사항 ********************************* 
   if)요청: http://localhost:3000/admin/search?test 의 경우
   @Get(':id')
@@ -30,44 +32,44 @@ import { MemberService } from 'src/member/member.service';
 @Controller('admin')
 export class AdminController {
   //의존성 주입
-  constructor(private memberService: MemberService) {
-    this.memberService = memberService;
+  constructor(private adminService: AdminService) {
+    this.adminService = adminService;
   }
   /*
    * @Author : OSOOMAN
    * @Date : 2023.12.24
    * @Function : redirect
-   * @Parm : version(변수)
-   * @Return : url
+   * @Parm :
+   * @Return : redirection
    * @Explain : version에 따라 redirect
    */
 
-  /*세션으로 확인 할 것인지 도는 jwt로 확인 ? 
-    ERROR [ExceptionsHandler] Cannot set headers after they are sent to the client
-
-    { url: 'http://localhost:3000/member/login' };
-  */
-
   @Get('/memberList')
   @Redirect('http://localhost:3000/admin/members')
-  memberRedirect(@Req() req: Request, @Res() res: Response) {
+  redirectToGetMemberList(@Req() req: Request, @Res() res: Response) {
     const session: any = req.session;
     if (session.memberType.memberType != 'admin') {
-      //admin/search는 리다이렉트 vs member/login은 못 감
       return res.redirect('http://localhost:3000/member/login');
     }
   }
-
+  /*
+   * @Author : OSOOMAN
+   * @Date : 2024.1.5
+   * @Function : 멤버 전체를 조회
+   * @Parm : (없음)
+   * @Return : 회원 전체 리스트
+   * @Explain : admin 타입의 관리자가 회원 리스트를 조회
+      - admin/memberList의 경로에서만 라우팅 된다. 
+   */
   @All('/members')
   async getMembers(@Req() req: Request, @Res() res: Response) {
     const session: any = req.session;
     const memberType: string = session.memberType.memberType;
-    const members = await this.memberService.getAllmembers();
+    const members = await this.adminService.getAllmembers();
 
     if (memberType != 'admin') {
       res.redirect('http://localhost:3000/member/login');
     } else {
-      //Q.왜 이렇게 받아줘야 할까?
       return res.status(200).send(members);
     }
   }
@@ -75,16 +77,34 @@ export class AdminController {
   /*아이디 또는 이름에 따라 회원을 찾을 수 있게 
     - 설계 순서: 요청 > DB조회 > service, 비즈니스 로직 > 확인된 멤버를 반환  
   */
-  @Get('search')
-  searchMember(@Query('name') memberName) {
-    return `here member name ${memberName}`;
+  /*
+   * @Author : OSOOMAN
+   * @Date : 2024.1.5
+   * @Function :
+   * @Parm : '고객의 이름'을 검색 또는 유저의 아이디 검색 예시)osoomansour@naver.com
+   * @Return : 사용자 정보 검색 결과
+   * @Explain :
+   */
+  @Get('/members/search')
+  searchMember(@Query('name') name: string) {
+    // userId로 검색 >
+    return this.adminService.searchAmember(name);
   }
+
+  /*
+   * @Author : OSOOMAN
+   * @Date : 2024.1.5
+   * @Function :
+   * @Parm : 파이프 필터 패턴 적용
+   * @Return : 회원의 일부 정보가 수정되어 업데이트 된 개인 정보를 반환
+   * @Explain : 고객의 요청(전화)에 따라서 주소등 정보 변경
+   */
   //@Patch의 의미는 부분 수정을 받을 때 : 고객의 요청에 의한 수정 또는 임의적 확인
   @Patch('/update/:id')
-  updateMemeberInfo(@Param('id') memberId: number, @Body() memberInfo) {
-    return {
-      memberId: memberId,
-      ...memberInfo,
-    };
+  updateMemeberInfo(
+    @Param('id', MyParamPipe) memberId: number,
+    @Body() memberInfo: UpdateMemberInfo,
+  ) {
+    return this.adminService.editProfile(memberId, memberInfo);
   }
 }
