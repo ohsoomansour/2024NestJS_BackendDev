@@ -152,4 +152,43 @@ export class MemberService {
       console.error(e);
     }
   }
+
+  /*
+   * @Author : OSOOMAN
+   * @Date : 2024.1.6
+   * @Function : (마지막 로그인 시점부터?) 휴면 상태 추적 및 설정
+   * @Parm :
+   * @Return :
+   * @Explain : 일정 시간 이상이 지나면 휴면 계정으로 전환하는 비즈니스 로직
+     - createBuilder 사용
+  */
+  async trackUserActivity(userId: string): Promise<void> {
+    // 사용자의 활동을 추적하고 필요에 따라 휴면 상태로 설정
+    const user = await this.members.findOne({ where: { userId: userId } });
+    if (user) {
+      user.lastActivityAt = new Date();
+      await this.members.save(user);
+    }
+  }
+  /*
+   * @Author : OSOOMAN
+   * @Date : 2024.1.6
+   * @Function : 계정 상태 활성화 기능
+   * @Parm :
+   * @Return :
+   * @Explain : 고객이 활성화 화면에서 직접 휴면 상태에서 '활성화 상태'로 변경한다.
+   */
+
+  async activateUser(userId: string): Promise<Member | undefined> {
+    const dormantMember = await this.members.findOneBy({
+      userId: userId,
+      isDormant: true, //휴면 상태
+    });
+    if (dormantMember) {
+      dormantMember.isDormant = false; //휴면상태 -> 활성화
+      await this.members.save(dormantMember);
+    }
+
+    return dormantMember;
+  }
 }

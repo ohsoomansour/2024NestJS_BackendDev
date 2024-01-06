@@ -25,7 +25,14 @@ export class Member extends CoreEntity {
   */
   @Column({nullable : true})
   memberType: string;
+
+  @Column({nullable: true})
+  lastActivityAt: Date;
   
+  @Column({nullable: true})
+  isDormant: boolean;
+
+
   @BeforeInsert()
   @BeforeUpdate()
   async hashingPw(): Promise<void> {

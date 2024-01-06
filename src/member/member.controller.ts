@@ -8,10 +8,14 @@ import {
   Redirect,
   Req,
   Res,
+  Logger,
+  Param,
+  Patch,
 } from '@nestjs/common';
 import { MemberService } from './member.service';
 import { Request, Response } from 'express';
 import { CreateMemberInput } from './dtos/regMember.dto';
+import { Member } from './entites/member.entity';
 /* SESSION  COOKIE란? 
   세션의 동작 방식
  > 클라이언트가 서버에 접속 시 세션 ID를 발급 받음
@@ -29,6 +33,7 @@ export class MemberController {
   constructor(private memberService: MemberService) {
     this.memberService = memberService;
   }
+  private logger = new Logger('memberController');
   /*
    * @Author : OSOOMAN
    * @Date : 2023.12.24
@@ -91,8 +96,10 @@ export class MemberController {
         session.memberType = memberType;
         session.cookie.maxAge = 1000 * 60; //만료 시간 : 60초
         res.status(HttpStatus.OK).send({ session: session });
-        console.log(`${session.user} 회원님이 로그인이 하였습니다.`);
+        this.logger.log(`${session.user} 회원님이 로그인이 하였습니다.`);
       }
+      //#로그인 후 활통 트래킹
+      await this.memberService.trackUserActivity(req.body.userId);
       return result;
     } catch (e) {
       console.log(e);
@@ -111,5 +118,20 @@ export class MemberController {
     const session: any = req.session;
     console.log(session);
     res.status(HttpStatus.OK).send({ Session: session });
+  }
+
+  /*
+   * @Author : OSOOMAN
+   * @Date : 2024.1.6
+   * @Function : 계정의 상태를 활성화하는 업데이트 함수
+   * @Parm : 유저의 id
+   * @Return : 활성화된 상태의 회원을 반환
+   * @Explain : 비활성화 상태에서 다시 활성화 상태로 업데이트를 한다.     
+   
+   */
+  @Patch('activate/:id')
+  async activateUser(@Param('id') id: string): Promise<Member | undefined> {
+    const activatedUser = await this.memberService.activateUser(id);
+    return activatedUser;
   }
 }

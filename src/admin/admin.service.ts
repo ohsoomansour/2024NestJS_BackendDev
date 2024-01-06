@@ -20,6 +20,7 @@ export class AdminService {
         order: {
           id: 'DESC',
         },
+        cache: true,
       });
       return members;
     } catch (e) {
@@ -28,12 +29,20 @@ export class AdminService {
   }
   // 이름으로 검색하여 목표는 1명이나 결과는 동명이인의 사람이 나올 가능성이 있음
   async searchAmember(name: string): Promise<Member> {
-    console.log(name); //undefined
     try {
       //findOneBy({ name: name });
       const searchedMember = await this.members.findOneOrFail({
         where: { name: name },
-        select: ['name', 'userId', 'memberType', 'address', 'updatedAt'],
+        select: [
+          'name',
+          'userId',
+          'memberType',
+          'address',
+          'updatedAt',
+          'lastActivityAt',
+          'isDormant',
+        ],
+        cache: true,
       });
 
       return searchedMember;
@@ -48,15 +57,42 @@ export class AdminService {
     { address, memberType }: UpdateMemberInfo,
   ): Promise<Member> {
     try {
-      const member = await this.members.findOne({ where: { id: memberId } });
+      const member = await this.members.findOne({
+        where: { id: memberId },
+        cache: true,
+      });
       if (member) {
-        member.address = address;
-        member.memberType = memberType;
+        if (address != '' && memberType != '') {
+          member.address = address;
+          member.memberType = memberType;
+        }
         await this.members.save(member);
       }
       return member;
     } catch (e) {
       console.error(e);
     }
+  }
+  /*
+   * @Author : OSOOMAN
+   * @Date : 2024.1.6
+   * @Function : 휴면 상태로 변경하는 기능
+   * @Parm :
+   * @Return :
+   * @Explain : 관리자가 설정된 시간 이상 활동이 없는 사용자를 휴면 상태로 설정
+   */
+  async setUsersToDormant(): Promise<void> {
+    // 설정된 시간 이상 활동이 없는 사용자 확인
+    const inactiveUsers = await this.members
+      .createQueryBuilder('user')
+      .where('user.lastActivityAt < :threshold', {
+        threshold: new Date(new Date().getTime() - 1 * 20 * 1000), //24 * 60 * 60 * 1000
+      }) // 예시: 24시간 이상 활동이 없는 경우
+      .getMany();
+
+    inactiveUsers.forEach(async (user) => {
+      user.isDormant = true;
+      await this.members.save(user);
+    });
   }
 }

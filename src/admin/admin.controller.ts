@@ -94,17 +94,31 @@ export class AdminController {
   /*
    * @Author : OSOOMAN
    * @Date : 2024.1.5
-   * @Function :
+   * @Function : 회원의 일부 속성을 업데이트
    * @Parm : 파이프 필터 패턴 적용
    * @Return : 회원의 일부 정보가 수정되어 업데이트 된 개인 정보를 반환
    * @Explain : 고객의 요청(전화)에 따라서 주소등 정보 변경
    */
   //@Patch의 의미는 부분 수정을 받을 때 : 고객의 요청에 의한 수정 또는 임의적 확인
+
   @Patch('/update/:id')
   updateMemeberInfo(
-    @Param('id', MyParamPipe) memberId: number,
+    @Param('id', MyParamPipe) id: number,
     @Body() memberInfo: UpdateMemberInfo,
   ) {
-    return this.adminService.editProfile(memberId, memberInfo);
+    return this.adminService.editProfile(id, memberInfo);
+  }
+
+  /*
+   * @Author : OSOOMAN
+   * @Date : 2024.1.6
+   * @Function : 고객의 계정을 비활성화하는 기능
+   * @Parm :
+   * @Return :
+   * @Explain : 일정시간(1달)을 방문하지 않은 회원들의 계정을 비활성화로 변경
+   */
+  @Patch('/members/inactive')
+  async inactivateAccount() {
+    await this.adminService.setUsersToDormant();
   }
 }
