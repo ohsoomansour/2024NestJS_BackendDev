@@ -2,6 +2,7 @@
 
 import { IsEmail, IsString } from "class-validator";
 import { CoreOutput } from "src/common/dtos/output.dto";
+//import { MemberRole } from "../entites/member.entity";
 
 /*
   + -------------------------------------------DTO란?-----------------------------------------------+ 
@@ -20,7 +21,7 @@ export class CreateMemberInput
   userId: string;
   password: string;
   address: string;
-  memberType: string;
+  memberRole: string;
   name:string;
 }
 

@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Member } from './entites/member.entity';
 import { CreateMemberInput, CreateMemberOutput } from './dtos/regMember.dto';
-import { LoginInput, LoginOutput, MemberType } from './dtos/login.dto';
+import { LoginInput, LoginOutput, MemberRole } from './dtos/login.dto';
 /* priavate only members: Repository<member> "member엔티티를 타입"
   1.Repository 만들어서 생성자 함수에 주입 시켜줘야됨
   2. const newMember = members.create(CreateMemberInput) 
@@ -72,7 +72,7 @@ export class MemberService {
     userId,
     password,
     address,
-    memberType,
+    memberRole,
   }: CreateMemberInput): Promise<CreateMemberOutput> {
     try {
       //이 아이디가 존재 하는 지 검사 필요
@@ -80,13 +80,15 @@ export class MemberService {
       if (idExist) {
         return { ok: false, error: 'ID already exists' };
       }
-      const newMember = this.members.create({
-        userId,
-        password,
-        address,
-        memberType,
-      });
-      await this.members.save(newMember);
+
+      await this.members.save(
+        this.members.create({
+          userId,
+          password,
+          address,
+          memberRole,
+        }),
+      );
       return { ok: true };
     } catch (e) {
       console.log(e);
@@ -109,13 +111,16 @@ export class MemberService {
     try {
       const member = await this.members.findOne({
         where: { userId },
+        select: ['userId', 'password'],
       });
+      console.log(member);
       if (!member) {
         return {
           ok: false,
           error: 'Member do not exist',
         };
       }
+      //
       const confirmPw = await member.checkingPw(password);
       //console.log(confirmPw); //undefined >> "true 외 전부"
       if (!confirmPw) {
@@ -133,7 +138,7 @@ export class MemberService {
     }
   }
   //주의: 리턴 타입 Promise<memberType>에서 memberType(DTO)로 하면 계속 Promise { <pending> }
-  async getMemberType({ userId }: LoginInput): Promise<MemberType> {
+  async getMemberRole({ userId }: LoginInput): Promise<MemberRole> {
     try {
       const member = await this.members.findOne({
         where: { userId },
@@ -141,11 +146,11 @@ export class MemberService {
       //console.log(member);
       if (member) {
         return {
-          memberType: member.memberType,
+          memberRole: member.memberRole,
         };
       } else {
         return {
-          memberType: '멤버 타입을 알 수 없습니다',
+          memberRole: '멤버 타입을 알 수 없습니다',
         };
       }
     } catch (e) {

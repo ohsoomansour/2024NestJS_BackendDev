@@ -4,8 +4,6 @@ import {
   Get,
   HttpStatus,
   Post,
-  Query,
-  Redirect,
   Req,
   Res,
   Logger,
@@ -36,21 +34,6 @@ export class MemberController {
   private logger = new Logger('memberController');
   /*
    * @Author : OSOOMAN
-   * @Date : 2023.12.24
-   * @Function : redirect
-   * @Parm : version(변수)
-   * @Return : url
-   * @Explain : version에 따라 redirect
-   */
-  @Get('')
-  @Redirect('https://docs.nestjs.com', 302)
-  getDocs(@Query('version') version) {
-    if (version && version === '5') {
-      return { url: 'https://docs.nestjs.com/v5/' };
-    }
-  }
-  /*
-   * @Author : OSOOMAN
    * @Date : 2023.12.21
    * @Function : 멤버 등록 함수
    * @Parm : request, response
@@ -65,10 +48,7 @@ export class MemberController {
       console.error();
     }
   }
-  @Get('/login')
-  loginPage() {
-    return '로그인 페이지입니다.';
-  }
+
   /*
    * @Author : OSOOMAN
    * @Date : 2023.12.23
@@ -79,7 +59,7 @@ export class MemberController {
    */
 
   //로그인 버튼을 누르면 홈으로 이동
-  @Get('/login/home')
+  @Get('/login')
   async logIn(
     //@Body() loginInfo,  # @Body 또는 아래 @Req req 둘 중 하나만 써야된다
     @Req() req: Request,
@@ -87,20 +67,21 @@ export class MemberController {
   ) {
     try {
       const result = await this.memberService.login(req.body); // {userId:"Admin4", password:"Adimin4"}
+      console.log(result);
       if (result.ok) {
         //#세션 설정
         const session: any = req.session;
         session.user = req.body.userId; //사용자가 정의한 임의의 지정 값2
-        //비즈니스 로직에서 유저 아이디 > memberType를 가져와야 되나
-        const memberType = await this.memberService.getMemberType(req.body);
-        session.memberType = memberType;
+        const memberRole = await this.memberService.getMemberRole(req.body);
+        session.memberRole = memberRole;
+        this.logger.log(`유저의 Role은 ${session.memberRole.memberRole}`);
         session.cookie.maxAge = 1000 * 60; //만료 시간 : 60초
-        res.status(HttpStatus.OK).send({ session: session });
+        //res.status(HttpStatus.OK).send({ session: session });
         this.logger.log(`${session.user} 회원님이 로그인이 하였습니다.`);
+        //#로그인 후 활통 트래킹
+        await this.memberService.trackUserActivity(req.body.userId);
+        return res.redirect('/');
       }
-      //#로그인 후 활통 트래킹
-      await this.memberService.trackUserActivity(req.body.userId);
-      return result;
     } catch (e) {
       console.log(e);
     }

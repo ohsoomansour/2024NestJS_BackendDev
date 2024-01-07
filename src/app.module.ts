@@ -7,6 +7,8 @@ import { AdminModule } from './admin/admin.module';
 import { EventsModule } from './events/events.module';
 import { ChatModule } from './chat/chat.module';
 import { APP_PIPE } from '@nestjs/core';
+import { HomeController } from './home.controller';
+//import { AuthModule } from './auth/auth.module';
 /*
   Controllers and Providers are scoped by the module
   > 컨트롤러 및 공급자의 범위는 모듈에 따라 결정됩니다.
@@ -90,8 +92,9 @@ import { APP_PIPE } from '@nestjs/core';
     AdminModule,
     EventsModule,
     ChatModule,
+    //AuthModule,
   ],
-  controllers: [],
+  controllers: [HomeController],
   providers: [
     {
       provide: APP_PIPE,

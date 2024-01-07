@@ -36,7 +36,7 @@ export class AdminService {
         select: [
           'name',
           'userId',
-          'memberType',
+          'memberRole',
           'address',
           'updatedAt',
           'lastActivityAt',
@@ -54,7 +54,7 @@ export class AdminService {
   //#admin이 회원의 정보를 변경 할 수 있는 권한 기능
   async editProfile(
     memberId: number,
-    { address, memberType }: UpdateMemberInfo,
+    { address, memberRole }: UpdateMemberInfo,
   ): Promise<Member> {
     try {
       const member = await this.members.findOne({
@@ -62,10 +62,8 @@ export class AdminService {
         cache: true,
       });
       if (member) {
-        if (address != '' && memberType != '') {
-          member.address = address;
-          member.memberType = memberType;
-        }
+        member.address = address;
+        member.memberRole = memberRole;
         await this.members.save(member);
       }
       return member;

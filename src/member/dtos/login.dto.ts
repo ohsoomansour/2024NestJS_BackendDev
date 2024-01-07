@@ -14,6 +14,6 @@ export class LoginInput {
 
 export class LoginOutput extends CoreOutput{}
 
-export class MemberType {
-  memberType: string;
+export class MemberRole {
+  memberRole: string;
 }

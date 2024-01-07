@@ -14,6 +14,7 @@ import { Request, Response } from 'express';
 import { AdminService } from './admin.service';
 import { MyParamPipe } from './validation/admin-memberParam.pipe';
 import { UpdateMemberInfo } from 'src/member/dtos/updateMember.dto';
+//import { Role } from 'src/auth/role.decorator';
 /* ******************************* 🚨route 주의사항 ********************************* 
   if)요청: http://localhost:3000/admin/search?test 의 경우
   @Get(':id')
@@ -62,12 +63,14 @@ export class AdminController {
       - admin/memberList의 경로에서만 라우팅 된다. 
    */
   @All('/members')
+  //@Role(['Admin'])
   async getMembers(@Req() req: Request, @Res() res: Response) {
     const session: any = req.session;
-    const memberType: string = session.memberType.memberType;
+    const memberRole = session.memberRole.memberRole;
+    console.log(memberRole);
     const members = await this.adminService.getAllmembers();
 
-    if (memberType != 'admin') {
+    if (memberRole != 'Admin') {
       res.redirect('http://localhost:3000/member/login');
     } else {
       return res.status(200).send(members);
