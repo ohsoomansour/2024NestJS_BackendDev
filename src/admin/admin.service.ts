@@ -71,14 +71,7 @@ export class AdminService {
       console.error(e);
     }
   }
-  /*
-   * @Author : OSOOMAN
-   * @Date : 2024.1.6
-   * @Function : 휴면 상태로 변경하는 기능
-   * @Parm :
-   * @Return :
-   * @Explain : 관리자가 설정된 시간 이상 활동이 없는 사용자를 휴면 상태로 설정
-   */
+
   async setUsersToDormant(): Promise<void> {
     // 설정된 시간 이상 활동이 없는 사용자 확인
     const inactiveUsers = await this.members

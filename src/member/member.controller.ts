@@ -9,13 +9,17 @@ import {
   Logger,
   Param,
   Patch,
+  UseGuards,
 } from '@nestjs/common';
 import { MemberService } from './member.service';
 import { Request, Response } from 'express';
 import { CreateMemberInput } from './dtos/regMember.dto';
 import { Member } from './entites/member.entity';
-/* SESSION  COOKIE란? 
-  세션의 동작 방식
+import { Role } from 'src/auth/role.decorator';
+import { AuthGuard } from 'src/auth/auth.guard';
+/*#SESSION  COOKIE란? 
+ session({secret: 'SESSION_ID_SM' - "This is the secret used to sign the session cookie" })
+  [세션의 동작 방식]
  > 클라이언트가 서버에 접속 시 세션 ID를 발급 받음
  > 클라이언트는 세션 ID에 대해 '쿠키를 사용해서 저장'하고 가지고 있음
   Set-Cookie : 	connect.sid=s%3AK6CjethYEn9sKy9BRmCHpG6AinvnrdEV.Gmrbjg77FmBlTJ7bc8hZCbHi7cZgd0fTK5x8akXh56U; 
@@ -24,7 +28,16 @@ import { Member } from './entites/member.entity';
  > 클라리언트는 서버에 요청할 때, 이 쿠키의 세션 ID를 같이 서버에 전달해서 요청
  > 서버는 세션 ID를 전달 받아서 별다른 작업없이 세션 ID로 세션에 있는 클라언트 정보를 가져와서 사용
  > 클라이언트 정보를 가지고 서버 요청을 처리하여 클라이언트에게 응답 
-  
+  [세션 구현 방법은 2가지]
+  1. middleware를 통한 구현 
+  2. Global형태로 구현 -> 
+     app.use(
+    session({
+      secret: 'SESSION_ID_SM',
+      resave: false, 
+      saveUninitialized: false, 
+    }),
+  );
   */
 @Controller('member')
 export class MemberController {
@@ -32,11 +45,24 @@ export class MemberController {
     this.memberService = memberService;
   }
   private logger = new Logger('memberController');
+
+  /*
+   * @Author : OSOOMAN
+   * @Date : 2024.1.7
+   * @Function :
+   * @Parm :
+   * @Return :
+   * @Explain :
+   */
+  @Get('/home')
+  goHome() {
+    return 'Welcom back to Member Home';
+  }
   /*
    * @Author : OSOOMAN
    * @Date : 2023.12.21
    * @Function : 멤버 등록 함수
-   * @Parm : request, response
+   * @Parm : CreateMemberInput(DTO)
    * @Return : object
    * @Explain : 클라인트에서 회원가입 POST REQUEST에 대한 처리
    */
@@ -52,21 +78,28 @@ export class MemberController {
   /*
    * @Author : OSOOMAN
    * @Date : 2023.12.23
-   * @Function : 로그인 후 세션 설정
-   * @Parm : request, response
-   * @Return : ok가 true이거나 false
-   * @Explain : 로그인 후 세션 만료 기간을 테스트하고 세션 유지 확인
+   * @Function : 로그인 후 세션 설정 및 계정 활동 트래킹
+   * @Parm : Request, Response
+   * @Return : 회원의 홈으로 이동 또는 에러
+   * @Explain : 로그인 후 '세션 만료 시간 60초'를 확인하고 '계정 활동 상태를 트래킹하는 기능'을 추가한다.
+      - 사용법: 
+      REST API Tool(Insomnia등)을 통한 예시: 
+      JSON  { "userId" : "osoomansour9@naver.com", "password" : "osoomansour9"  }
    */
 
   //로그인 버튼을 누르면 홈으로 이동
   @Get('/login')
+  @Role(['any'])
+  @UseGuards(AuthGuard)
   async logIn(
-    //@Body() loginInfo,  # @Body 또는 아래 @Req req 둘 중 하나만 써야된다
+    //#주의사항: @Body 또는 아래 @Req req 둘 중 하나만 써야된다
+    //@Body() loginInfo,
     @Req() req: Request,
     @Res() res: Response,
   ) {
     try {
-      const result = await this.memberService.login(req.body); // {userId:"Admin4", password:"Adimin4"}
+      const result = await this.memberService.login(req.body); 
+      this.logger.log(`login reuslt의 결과`);
       console.log(result);
       if (result.ok) {
         //#세션 설정
@@ -76,16 +109,42 @@ export class MemberController {
         session.memberRole = memberRole;
         this.logger.log(`유저의 Role은 ${session.memberRole.memberRole}`);
         session.cookie.maxAge = 1000 * 60; //만료 시간 : 60초
-        //res.status(HttpStatus.OK).send({ session: session });
         this.logger.log(`${session.user} 회원님이 로그인이 하였습니다.`);
-        //#로그인 후 활통 트래킹
+        this.logger.log(`logIn에서 세션을 확인:`);
+        console.log(session);
+        //#로그인 후 활동 추적
         await this.memberService.trackUserActivity(req.body.userId);
-        return res.redirect('/');
+        return res.redirect('/member/home');
       }
     } catch (e) {
-      console.log(e);
+      console.error(e);
+      this.logger.error(
+        `this.memberService.login의 반환하는 result.ok 값이 true가 아닙니다.`,
+      );
+      this.logger.debug(
+        `1.로그인 아이디와 비밀번호를 확인하세요! 
+         2.jason web token의 값이 옳바른 지 확인하세요!`,
+      );
     }
   }
+
+  /*
+   * @Author : OSOOMAN
+   * @Date : 2024.1.6
+   * @Function : 계정의 상태를 활성화하는 함수
+   * @Parm : 문자열 타입의 사용자 계정
+   * @Return : 활성화된 상태의 회원을 반환
+   * @Explain : id파라미터를 통해서 비활성화 상태에서 다시 활성화 상태로 업데이트를 한다.     
+      - 사용법: 
+      [PATCH] http://localhost:3000/member/activate/client@naver.com
+
+   */
+  @Patch('activate/:userid')
+  async activateUser(@Param('userid') id: string): Promise<Member | undefined> {
+    const activatedUser = await this.memberService.activateUser(id);
+    return activatedUser;
+  }
+
   /*
    * @Author : OSOOMAN
    * @Date : 2023.12.23
@@ -99,20 +158,5 @@ export class MemberController {
     const session: any = req.session;
     console.log(session);
     res.status(HttpStatus.OK).send({ Session: session });
-  }
-
-  /*
-   * @Author : OSOOMAN
-   * @Date : 2024.1.6
-   * @Function : 계정의 상태를 활성화하는 업데이트 함수
-   * @Parm : 유저의 id
-   * @Return : 활성화된 상태의 회원을 반환
-   * @Explain : 비활성화 상태에서 다시 활성화 상태로 업데이트를 한다.     
-   
-   */
-  @Patch('activate/:id')
-  async activateUser(@Param('id') id: string): Promise<Member | undefined> {
-    const activatedUser = await this.memberService.activateUser(id);
-    return activatedUser;
   }
 }

@@ -4,6 +4,8 @@ import { Repository } from 'typeorm';
 import { Member } from './entites/member.entity';
 import { CreateMemberInput, CreateMemberOutput } from './dtos/regMember.dto';
 import { LoginInput, LoginOutput, MemberRole } from './dtos/login.dto';
+import { JwtService } from 'src/jwt/jwt.service';
+import { MemberProfileOutput } from './dtos/member.profile.dto';
 /* priavate only members: Repository<member> "member엔티티를 타입"
   1.Repository 만들어서 생성자 함수에 주입 시켜줘야됨
   2. const newMember = members.create(CreateMemberInput) 
@@ -59,6 +61,7 @@ export class MemberService {
   constructor(
     @InjectRepository(Member)
     private readonly members: Repository<Member>,
+    private readonly jwtService: JwtService,
   ) {}
   /*
    * @Author : OSOOMAN
@@ -129,9 +132,10 @@ export class MemberService {
           error: 'The password is wrong',
         };
       }
+      const token = this.jwtService.sign(member.userId);
       return {
         ok: true,
-        error: '',
+        token,
       };
     } catch (e) {
       console.error(e);
@@ -155,6 +159,19 @@ export class MemberService {
       }
     } catch (e) {
       console.error(e);
+    }
+  }
+
+  async findById(id: string): Promise<MemberProfileOutput> {
+    try {
+      const user = await this.members.findOne({ where: { userId: id } });
+
+      return {
+        ok: true,
+        member: user,
+      };
+    } catch (error) {
+      return { ok: false, error: 'User Not Found' };
     }
   }
 

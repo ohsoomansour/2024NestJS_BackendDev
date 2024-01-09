@@ -1,19 +1,21 @@
 /* eslint-disable prettier/prettier */
 import { CoreEntity } from 'src/common/entites/core.entity';
-import { BeforeInsert,BeforeUpdate,  Column, Entity } from 'typeorm';
+import { BeforeInsert, Column, Entity } from 'typeorm'; 
 import * as bcrypt from "bcrypt";
 import { InternalServerErrorException } from '@nestjs/common';
+import { registerEnumType } from '@nestjs/graphql';
 //import { Field, registerEnumType } from '@nestjs/graphql';
 
-/*
+/**/
 export enum MemberRole {
-  Admin = "Admin",
-  Manager = "Manager",
-  Client = "Client",
+  admin = "admin",
+  manager = "manager",
+  client = "client",
+  any = "any"
 }
 //#설치 필요: npm i @nestjs/graphql
 registerEnumType(MemberRole, { name: 'MemberRole'});
-*/
+
 @Entity()
 export class Member extends CoreEntity {
   
@@ -34,9 +36,9 @@ export class Member extends CoreEntity {
     > member 테이블에 컬럼을 추가하는데 값이 없으니까 바로 에러가 발생한다
     > 해결점: 일단 nullable을 허용 > 컬럼 추가 > 값 추가 > null 적용 여부를 생각하면 된다!
   */
-  //@Column({nullable : true, type: 'enum', enum: MemberRole})
-  @Column({nullable : true })
-  memberRole: string;
+  //@Column({nullable : true, type: 'enum', enum: MemberRole}) @Column({nullable : true })
+  @Column({nullable : true, type: 'enum', enum: MemberRole}) 
+  memberRole: MemberRole;
 
   @Column({nullable: true})
   lastActivityAt: Date;

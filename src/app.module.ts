@@ -1,14 +1,4 @@
-import { Module, ValidationPipe } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { Member } from './member/entites/member.entity';
-import { Admin } from 'typeorm';
-import { MemberModule } from './member/member.module';
-import { AdminModule } from './admin/admin.module';
-import { EventsModule } from './events/events.module';
-import { ChatModule } from './chat/chat.module';
-import { APP_PIPE } from '@nestjs/core';
-import { HomeController } from './home.controller';
-//import { AuthModule } from './auth/auth.module';
+/* eslint-disable prettier/prettier */
 /*
   Controllers and Providers are scoped by the module
   > 컨트롤러 및 공급자의 범위는 모듈에 따라 결정됩니다.
@@ -75,15 +65,45 @@ import { HomeController } from './home.controller';
    > ⭐npm install --save @nestjs/typeorm typeorm pg (*DOCS 기준 이것만 mysql -> pg로 변경해서 설치 필요)
    > npm install typeorm --save
    > Install a database driver: npm install pg --save */
+import { MiddlewareConsumer, Module, NestModule, RequestMethod, ValidationPipe } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { Member } from './member/entites/member.entity';
+import { Admin } from 'typeorm';
+import { MemberModule } from './member/member.module';
+import { AdminModule } from './admin/admin.module';
+import { EventsModule } from './events/events.module';
+import { ChatModule } from './chat/chat.module';
+import { APP_PIPE } from '@nestjs/core';
+import { HomeResolver } from './home.resolver';
+//import { GraphQLModule } from '@nestjs/graphql';
+//import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
+import * as Joi from 'joi';
+import { JwtModule } from './jwt/jwt.module';
+import { ConfigModule } from '@nestjs/config';
+import { JwtMiddleware } from './jwt/jwt.middleware';
+//import { JwtModule } from '@nestjs/jwt';
+
 @Module({
   imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: process.env.NODE_ENV === 'dev' ? '.env.dev' : '.env.test',
+      //joi는 변수의 schema, type 등을 런타임에서 체킹하도록 도와주는 패키지이
+      validationSchema: Joi.object({
+        JWT_SECRET: Joi.string().required(),
+        DB_HOST:Joi.string(),
+        DB_PORT:Joi.string(),
+        DB_PASSWORD:Joi.string(),
+        
+      }),
+    }),
     TypeOrmModule.forRoot({
       type: 'postgres',
-      host: 'localhost',
-      port: 5432,
-      username: 'postgres',
-      password: '284823', //postgresql은 비번을 묻지 않음
-      database: 'NestJS_BackendDev',
+      host: process.env.DB_HOST,
+      port: +process.env.DB_PORT,
+      username: process.env.DB_USERNAME,
+      password: process.env.DB_PASSWORD,         //postgresql은 비번을 묻지 않음
+      database: process.env.DB_NAME,
       synchronize: true,
       logging: true,
       entities: [Member, Admin], //[join(__dirname, '/**/*.entity.ts')]
@@ -92,9 +112,52 @@ import { HomeController } from './home.controller';
     AdminModule,
     EventsModule,
     ChatModule,
-    //AuthModule,
+    JwtModule.forRoot({
+      privateKey: process.env.JWT_SECRET,
+    }),
+    /*#JwtModule등록 방법2.
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      global: true,
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        secret: configService.get<string>('JWT_SECRET'),
+        signOptions: {
+          expiresIn: `${configService.get('JWT_EXPIRATION_TIME')}s`,
+        },
+      }),
+    }),
+    */
+    /*#GraphqlModule으로 ws과 context 사용법
+    GraphQLModule.forRoot<ApolloDriverConfig>({
+      driver: ApolloDriver,
+      autoSchemaFile: true,
+      //🚨주의사항1:playground에서 graphql-ws를 지원하지 않음 따라서 subscription이 안됨
+      
+      subscriptions: {
+        'graphql-ws': {
+          onConnect: (context: Context<any>) => {
+            //🚨주의사항2: 위 'subscriptions-transport-ws'를 참고하여 해석 할 것❗
+            const { connectionParams, extra } = context;
+            //console.log(context)
+            extra.token = connectionParams['x-jwt'];
+          },
+        },
+      },
+      context: ({ req, extra }) => {
+        console.log(req); //현재 로그인된 '고객'의 x-jwt가 들어옴
+        if (extra) {
+          return { token: extra.token };
+        } else {
+          return { token: req.headers['x-jwt'] };  //jwt 
+        }
+      },
+      introspection: true,
+      playground: true,
+    }),*/
+    
   ],
-  controllers: [HomeController],
+  controllers: [],
   providers: [
     {
       provide: APP_PIPE,
@@ -104,6 +167,30 @@ import { HomeController } from './home.controller';
         disableErrorMessages: true,
       }),*/
     },
+    HomeResolver,
+
   ], //기본적으로 제공되는 ValidationPipe
 })
-export class AppModule {}
+
+/* NestJS는 "Express와 같은 원리" 
+  #MiddlewareConsumer  
+   @param {...(Type | Function)} middleware middleware class/function or array of classes/functions
+
+
+   export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(JwtMiddleware).forRoutes({
+      path: '*',  
+      method: RequestMethod.ALL,
+    });
+  }
+}
+   
+
+*/
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(JwtMiddleware).forRoutes(
+    {path: '*', method: RequestMethod.ALL });
+  }
+}

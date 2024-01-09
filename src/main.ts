@@ -4,6 +4,9 @@ import { AppModule } from './app.module';
 import * as session from 'express-session'; //세션
 import { IoAdapter } from '@nestjs/platform-socket.io';
 import { ValidationPipe } from '@nestjs/common/pipes/validation.pipe';
+import { JwtMiddleware } from './jwt/jwt.middleware';
+import { JwtService } from './jwt/jwt.service';
+//import { JwtMiddleware } from './jwt/jwt.middleware';
 
 //import { RedisIoAdapter } from './events/redis.adapter';
 
@@ -61,7 +64,8 @@ async function bootstrap() {
       resave: false, //request 중에 세션이 수정되지 않아도 세션을 세션 저장소에 다시 저장하도록 강제
       saveUninitialized: false, //초기화되지 않는 세션을 저장하게 함
     }),
-  ); //localhost == 127.0.0.1
+  );
+  //app.use(JwtMiddleware);
 
   await app.listen(3000);
   console.log(`Application is running on: ${await app.getUrl()}`);
